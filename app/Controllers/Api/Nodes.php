@@ -50,12 +50,24 @@ class Nodes extends BaseController
             }
 
             return $this->ok([
+                'frozen'     => $parent !== null && $nodes->lockedAncestor($parent) !== null,
                 'folder'     => $folder ? ['id' => (int) $folder['id'], 'name' => $folder['name']] : null,
                 'breadcrumb' => $crumbs,
                 'items'      => $items,
                 'search'     => $q !== '' ? $q : null,
                 'stats'      => ['folders' => $dirs, 'files' => $fileCount, 'size' => $totalSize, 'usage' => $nodes->totalSize()],
             ]);
+        });
+    }
+
+    /** POST api/lock {ids, locked:bool} — hanya pemilik. */
+    public function lock()
+    {
+        return $this->guard(function () {
+            $in = $this->input();
+            $n  = service('files')->setLock((array) ($in['ids'] ?? []), ! empty($in['locked']));
+
+            return $this->ok(['changed' => $n]);
         });
     }
 

@@ -46,6 +46,106 @@ class Installer
         return false;
     }
 
+    // ------------------------------------------------------------------
+    // Migrasi database (tanpa SSH)
+    // ------------------------------------------------------------------
+
+    private static function markerPath(): string
+    {
+        return rtrim(WRITEPATH, '/\\') . DIRECTORY_SEPARATOR . 'schema.version';
+    }
+
+    /** Nama berkas migrasi terbaru di folder app/Database/Migrations (tanpa .php). */
+    public static function latestMigration(): string
+    {
+        $files = glob(APPPATH . 'Database/Migrations/*.php') ?: [];
+        sort($files, SORT_STRING);
+
+        return $files === [] ? '' : basename((string) end($files), '.php');
+    }
+
+    /** Migrasi baru ada di berkas tetapi belum dijalankan (berdasarkan penanda cepat, tanpa query DB). */
+    public static function schemaOutdated(): bool
+    {
+        $m = self::markerPath();
+
+        return ! (is_file($m) && trim((string) @file_get_contents($m)) === self::latestMigration());
+    }
+
+    /** Pesan galat migrasi terakhir (otomatis tidak diulang sampai ada perubahan), atau null. */
+    public static function lastMigrationError(): ?string
+    {
+        $f = self::markerPath() . '.error';
+
+        return is_file($f) ? (string) @file_get_contents($f) : null;
+    }
+
+    /**
+     * Status migrasi.
+     *
+     * @return array{applied:list<array{version:string,time:string}>,pending:list<string>}
+     */
+    public static function migrationStatus(): array
+    {
+        $runner  = new \CodeIgniter\Database\MigrationRunner(config('Migrations'), Database::connect());
+        $runner->setNamespace('App');
+        $applied = [];
+        $done    = [];
+        foreach ($runner->getHistory() as $h) {
+            $done[(string) $h->version] = true;
+            $applied[] = ['version' => (string) $h->version, 'time' => date('Y-m-d H:i', (int) $h->time)];
+        }
+        $pending = [];
+        foreach ($runner->findMigrations() as $m) {
+            if (! isset($done[(string) $m->version])) {
+                $pending[] = (string) $m->name . ' (' . $m->version . ')';
+            }
+        }
+
+        return ['applied' => $applied, 'pending' => $pending];
+    }
+
+    /**
+     * Jalankan semua migrasi yang tertunda. Data TIDAK diganti/dihapus: hanya migrasi yang belum
+     * tercatat di tabel `migrations` yang dieksekusi.
+     *
+     * @return array{ok:bool,message:string}
+     */
+    public static function runMigrations(): array
+    {
+        try {
+            $runner = new \CodeIgniter\Database\MigrationRunner(config('Migrations'), Database::connect());
+            $runner->setNamespace('App');
+            $runner->latest();
+            @file_put_contents(self::markerPath(), self::latestMigration());
+            @unlink(self::markerPath() . '.error');
+
+            return ['ok' => true, 'message' => 'Migrasi selesai.'];
+        } catch (\Throwable $e) {
+            @file_put_contents(self::markerPath() . '.error', self::latestMigration() . "\n" . $e->getMessage());
+            log_message('error', 'Migrasi gagal: ' . $e->getMessage());
+
+            return ['ok' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * Upgrade otomatis sekali saat ada migrasi baru (mis. setelah berkas diganti lewat FTP).
+     * Bila gagal, tidak diulang pada setiap permintaan; administrator melihat peringatan dan
+     * dapat mencoba lagi dari menu Administrasi → Pembaruan Database.
+     */
+    public static function ensureSchema(): void
+    {
+        if (! self::schemaOutdated()) {
+            return;
+        }
+        $err = self::lastMigrationError();
+        if ($err !== null && str_starts_with($err, self::latestMigration() . "\n")) {
+            return; // sudah dicoba untuk versi ini dan gagal
+        }
+        self::runMigrations();
+    }
+
     public static function writeLock(): void
     {
         @file_put_contents(self::lockPath(), 'installed ' . date('c') . "\n");

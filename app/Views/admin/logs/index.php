@@ -7,10 +7,11 @@ $labels = [
     'download' => 'Unduh', 'download_zip' => 'Unduh ZIP', 'share_create' => 'Buat tautan', 'share_update' => 'Ubah tautan',
     'share_delete' => 'Cabut tautan', 'share_view' => 'Tautan dilihat', 'share_download' => 'Tautan diunduh', 'share_disable' => 'Nonaktifkan tautan',
     'share_enable' => 'Aktifkan tautan', 'user_create' => 'Pengguna baru', 'user_update' => 'Ubah pengguna', 'user_delete' => 'Hapus pengguna',
-    'role_create' => 'Peran baru', 'role_update' => 'Ubah peran', 'role_delete' => 'Hapus peran', 'password_change' => 'Ganti sandi',
+    'role_create' => 'Peran baru', 'role_update' => 'Ubah peran', 'role_delete' => 'Hapus peran', 'password_change' => 'Ganti sandi', 'db_migrate' => 'Migrasi database', 'lock' => 'Kunci', 'unlock' => 'Buka kunci',
+    'backup_create' => 'Buat backup', 'backup_download' => 'Unduh backup', 'backup_delete' => 'Hapus backup', 'backup_restore' => 'Pulihkan backup', 'backup_upload' => 'Unggah backup',
 ];
 $badge = static fn (string $a): string => match (true) {
-    in_array($a, ['delete', 'purge', 'login_failed', 'user_delete', 'role_delete', 'share_delete'], true) => 'danger',
+    in_array($a, ['delete', 'purge', 'login_failed', 'user_delete', 'role_delete', 'share_delete', 'backup_delete', 'backup_restore'], true) => 'danger',
     in_array($a, ['upload', 'mkdir', 'restore', 'user_create', 'role_create', 'share_create'], true)       => 'success',
     str_starts_with($a, 'share')                                                                           => 'info',
     default                                                                                                => 'secondary',

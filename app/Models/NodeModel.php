@@ -17,7 +17,7 @@ class NodeModel extends Model
     protected $useTimestamps    = true;
     protected $allowedFields    = [
         'parent_id', 'type', 'name', 'storage_name', 'mime', 'ext', 'size', 'owner_id',
-        'deleted_at', 'deleted_by', 'trash_root_id',
+        'deleted_at', 'deleted_by', 'trash_root_id', 'locked_by', 'locked_at',
     ];
 
     /** Node aktif (tidak di sampah) berdasarkan id. */
@@ -186,6 +186,40 @@ class NodeModel extends Model
                 return false;
             }
             $cur = $row['parent_id'] !== null ? (int) $row['parent_id'] : null;
+        }
+
+        return false;
+    }
+
+    /**
+     * Node terkunci pertama pada rantai dari $id ke root (termasuk dirinya), atau null.
+     * Item yang berada di dalam folder terkunci dianggap "beku".
+     */
+    public function lockedAncestor(?int $id): ?array
+    {
+        $cur   = $id;
+        $guard = 0;
+        while ($cur !== null && $guard++ < 200) {
+            $row = $this->select('id, name, parent_id, locked_at')->find($cur);
+            if ($row === null) {
+                return null;
+            }
+            if (! empty($row['locked_at'])) {
+                return $row;
+            }
+            $cur = $row['parent_id'] !== null ? (int) $row['parent_id'] : null;
+        }
+
+        return null;
+    }
+
+    /** Apakah ada item terkunci di dalam folder $id (keturunan, bukan dirinya)? */
+    public function hasLockedDescendant(int $id): bool
+    {
+        foreach ($this->descendants($id) as $d) {
+            if (! empty($d['locked_at'])) {
+                return true;
+            }
         }
 
         return false;

@@ -82,6 +82,14 @@ class Auth
         return true;
     }
 
+    /** Hanya peran bawaan "administrator" (bukan sekadar punya izin) yang lolos. */
+    public function isAdministrator(): bool
+    {
+        $u = $this->user();
+
+        return $u !== null && ($u['role']['name'] ?? '') === 'administrator';
+    }
+
     public function isOwnOnly(): bool
     {
         $u = $this->user();

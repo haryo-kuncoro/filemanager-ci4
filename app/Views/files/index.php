@@ -41,6 +41,8 @@ $canUpload = can('files.upload');
             <?php if (can('files.copy') || can('files.move')): ?><button class="btn btn-sm btn-outline-secondary" data-act="paste" title="Tempel (Ctrl+V)"><i class="bi bi-clipboard-check"></i></button><?php endif; ?>
             <?php if (can('files.rename')): ?><button class="btn btn-sm btn-outline-secondary" data-act="rename" title="Ubah nama (F2)"><i class="bi bi-input-cursor-text"></i></button><?php endif; ?>
             <?php if (can('files.share')): ?><button class="btn btn-sm btn-outline-secondary" data-act="share" title="Bagikan lewat tautan"><i class="bi bi-share"></i></button><?php endif; ?>
+            <button class="btn btn-sm btn-outline-secondary" data-act="lock" title="Kunci (hanya pemilik)"><i class="bi bi-lock"></i></button>
+            <button class="btn btn-sm btn-outline-secondary" data-act="unlock" title="Buka kunci"><i class="bi bi-unlock"></i></button>
             <button class="btn btn-sm btn-outline-secondary" data-act="info" title="Properti"><i class="bi bi-info-circle"></i></button>
             <?php if (can('files.delete')): ?><button class="btn btn-sm btn-outline-danger" data-act="delete" title="Hapus (Delete)"><i class="bi bi-trash"></i></button><?php endif; ?>
         </span>

@@ -37,6 +37,16 @@ class Services extends BaseService
         return new Storage(config('Filemanager'));
     }
 
+    /** Backup & pemulihan (khusus administrator). */
+    public static function backup(bool $getShared = true): \App\Libraries\Backup
+    {
+        if ($getShared) {
+            return static::getSharedInstance('backup');
+        }
+
+        return new \App\Libraries\Backup(static::storage());
+    }
+
     /** Logika bisnis file manager (folder, upload, salin, pindah, sampah, zip). */
     public static function files(bool $getShared = true): FileService
     {

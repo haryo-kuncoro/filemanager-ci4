@@ -18,6 +18,14 @@ if (! function_exists('can')) {
     }
 }
 
+if (! function_exists('is_admin')) {
+    /** Administrator (peran bawaan "administrator") — dipakai untuk fitur backup/restore. */
+    function is_admin(): bool
+    {
+        return service('auth')->isAdministrator();
+    }
+}
+
 if (! function_exists('fm_bytes')) {
     function fm_bytes(int|string|null $bytes): string
     {

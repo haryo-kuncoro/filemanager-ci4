@@ -15,6 +15,9 @@ class AuthFilter implements FilterInterface
 {
     public function before(RequestInterface $request, $arguments = null)
     {
+        if (\App\Libraries\Installer::isInstalled()) {
+            \App\Libraries\Installer::ensureSchema();
+        }
         $auth = service('auth');
         $api  = self::wantsJson($request);
 

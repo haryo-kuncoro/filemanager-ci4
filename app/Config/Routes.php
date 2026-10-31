@@ -51,6 +51,7 @@ $routes->group('', ['filter' => 'auth'], static function ($routes) {
         $routes->post('rename', 'Api\Nodes::rename', ['filter' => 'perm:files.rename']);
         $routes->post('move', 'Api\Nodes::move', ['filter' => 'perm:files.move']);
         $routes->post('copy', 'Api\Nodes::copy', ['filter' => 'perm:files.copy']);
+        $routes->post('lock', 'Api\Nodes::lock', ['filter' => 'perm:files.view']);
         $routes->post('delete', 'Api\Nodes::delete', ['filter' => 'perm:files.delete']);
 
         $routes->post('upload', 'Api\Upload::chunk', ['filter' => 'perm:files.upload']);
@@ -93,5 +94,15 @@ $routes->group('', ['filter' => 'auth'], static function ($routes) {
         $routes->post('shares/(:num)/delete', 'Admin\Shares::delete/$1', ['filter' => 'perm:shares.manage']);
 
         $routes->get('logs', 'Admin\Logs::index', ['filter' => 'perm:logs.view']);
+
+        $routes->get('database', 'Admin\Database::index', ['filter' => 'admin']);
+        $routes->post('database/migrate', 'Admin\Database::migrate', ['filter' => 'admin']);
+
+        $routes->get('backups', 'Admin\Backups::index', ['filter' => 'admin']);
+        $routes->post('backups', 'Admin\Backups::create', ['filter' => 'admin']);
+        $routes->post('backups/upload', 'Admin\Backups::upload', ['filter' => 'admin']);
+        $routes->get('backups/download/(:segment)', 'Admin\Backups::download/$1', ['filter' => 'admin']);
+        $routes->post('backups/restore', 'Admin\Backups::restore', ['filter' => 'admin']);
+        $routes->post('backups/delete', 'Admin\Backups::delete', ['filter' => 'admin']);
     });
 });

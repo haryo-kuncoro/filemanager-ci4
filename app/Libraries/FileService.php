@@ -53,6 +53,8 @@ class FileService
             'shared'     => (int) ($n['share_count'] ?? 0) > 0,
             'mine'       => $this->auth->check() && (int) ($n['owner_id'] ?? 0) === $this->auth->id(),
             'editable'   => ! $this->auth->isOwnOnly() || (int) ($n['owner_id'] ?? 0) === $this->auth->id(),
+            'locked'     => ! empty($n['locked_at']),
+            'locked_at'  => $iso($n['locked_at'] ?? null),
             'kind'       => $this->storage->previewKind($n),
             'thumb'      => $n['type'] === 'file' && str_starts_with((string) ($n['mime'] ?? ''), 'image/') && $n['mime'] !== 'image/svg+xml',
         ];
@@ -99,6 +101,65 @@ class FileService
         }
     }
 
+    /** Item (atau folder induknya) terkunci -> tidak boleh diubah/dipindah/dihapus. */
+    private function assertUnlocked(array $node, bool $deep = false): void
+    {
+        $lock = $this->nodes->lockedAncestor((int) $node['id']);
+        if ($lock !== null) {
+            $what = (int) $lock['id'] === (int) $node['id'] ? '"' . $node['name'] . '" terkunci' : '"' . $node['name'] . '" berada di folder terkunci "' . $lock['name'] . '"';
+            throw new FileException($what . '. Buka kunci terlebih dahulu.', 423);
+        }
+        if ($deep && $node['type'] === 'folder' && $this->nodes->hasLockedDescendant((int) $node['id'])) {
+            throw new FileException('Folder "' . $node['name'] . '" memuat item terkunci. Buka kunci terlebih dahulu.', 423);
+        }
+    }
+
+    /** Folder tujuan terkunci (atau di dalam folder terkunci) -> tidak boleh menambah isi. */
+    private function assertTargetOpen(?array $folder): void
+    {
+        if ($folder === null) {
+            return;
+        }
+        $lock = $this->nodes->lockedAncestor((int) $folder['id']);
+        if ($lock !== null) {
+            throw new FileException('Folder "' . $lock['name'] . '" terkunci, isinya tidak dapat ditambah. Buka kunci terlebih dahulu.', 423);
+        }
+    }
+
+    /**
+     * Kunci / buka kunci. Hanya PEMILIK item yang boleh (administrator pun tidak),
+     * kecuali item yatim tanpa pemilik. @return int jumlah item yang berubah
+     */
+    public function setLock(array $ids, bool $lock): int
+    {
+        $ids   = $this->normalizeIds($ids);
+        $uid   = (int) $this->auth->id();
+        $nodes = [];
+        foreach ($ids as $id) {
+            $node = $this->need($id);
+            if ((int) ($node['owner_id'] ?? 0) !== $uid) {
+                throw new FileException('Hanya pemilik yang dapat ' . ($lock ? 'mengunci' : 'membuka kunci') . ' "' . $node['name'] . '".', 403);
+            }
+            $nodes[] = $node;
+        }
+        $now = $this->now();
+        $n   = 0;
+        $this->nodes->db->transStart();
+        foreach ($nodes as $node) {
+            if ($lock === ! empty($node['locked_at'])) {
+                continue;
+            }
+            $this->nodes->update((int) $node['id'], [
+                'locked_by' => $lock ? $uid : null, 'locked_at' => $lock ? $now : null,
+            ]);
+            ActivityLogModel::record($lock ? 'lock' : 'unlock', $this->auth->user(), (int) $node['id'], $node['name']);
+            $n++;
+        }
+        $this->nodes->db->transComplete();
+
+        return $n;
+    }
+
     /** @param array<int|string> $ids */
     private function normalizeIds(array $ids): array
     {
@@ -133,6 +194,9 @@ class FileService
     {
         $parent = $this->needFolder($parentId);
         $name   = $this->storage->sanitizeName($name, true);
+        if (! ($ensure && $this->nodes->nameExists($this->parentOf($parent), $name))) {
+            $this->assertTargetOpen($parent);
+        }
         $pid    = $this->parentOf($parent);
 
         if ($this->nodes->nameExists($pid, $name)) {
@@ -164,6 +228,7 @@ class FileService
     {
         $node = $this->need($id);
         $this->assertCanModify($node, 'files.rename');
+        $this->assertUnlocked($node);
 
         $isFolder = $node['type'] === 'folder';
         $name     = $this->storage->sanitizeName($name, $isFolder);
@@ -191,12 +256,14 @@ class FileService
     {
         $ids    = $this->normalizeIds($ids);
         $target = $this->needFolder($targetId);
+        $this->assertTargetOpen($target);
         $tid    = $this->parentOf($target);
         $plan   = [];
 
         foreach ($ids as $id) {
             $node = $this->need($id);
             $this->assertCanModify($node, 'files.move');
+            $this->assertUnlocked($node);
 
             $current = $node['parent_id'] !== null ? (int) $node['parent_id'] : null;
             if ($current === $tid) {
@@ -227,6 +294,7 @@ class FileService
     {
         $ids    = $this->normalizeIds($ids);
         $target = $this->needFolder($targetId);
+        $this->assertTargetOpen($target);
         $tid    = $this->parentOf($target);
         $count  = 0;
 
@@ -294,6 +362,7 @@ class FileService
         foreach ($ids as $id) {
             $node = $this->need($id);
             $this->assertCanModify($node, 'files.delete');
+            $this->assertUnlocked($node, true);
             $nodes[] = $node;
         }
 
@@ -459,6 +528,7 @@ class FileService
         }
 
         $parent = $this->needFolder($meta['parent_id']);
+        $this->assertTargetOpen($parent);
         $name   = $this->storage->sanitizeUploadName((string) $meta['name']);
         $total  = (int) $meta['size'];
         $offset = (int) $meta['offset'];

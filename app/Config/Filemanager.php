@@ -95,4 +95,7 @@ class Filemanager extends BaseConfig
             $this->storagePath = rtrim(WRITEPATH, '/\\') . DIRECTORY_SEPARATOR . 'filemanager';
         }
     }
+
+    /** Ukuran maksimum berkas backup yang boleh diunggah untuk dipulihkan (byte). */
+    public int $maxBackupUpload = 8 * 1024 * 1024 * 1024;
 }
