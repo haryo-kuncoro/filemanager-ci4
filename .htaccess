@@ -1,0 +1,30 @@
+# ----------------------------------------------------------------------
+# Untuk shared hosting yang document root-nya TIDAK bisa diarahkan ke public/
+# (mis. seluruh proyek diunggah ke public_html/ atau public_html/berkas/).
+# Semua request diteruskan ke folder public/, sehingga app/, vendor/, writable/,
+# .env, dll. tidak pernah dapat diakses langsung dari web.
+# Jika document root sudah mengarah ke public/, berkas ini tidak dipakai.
+# ----------------------------------------------------------------------
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Jangan pernah melayani berkas/folder tersembunyi (.env, .git, dll.)
+    RewriteRule (^|/)\.(?!well-known/) - [F,L]
+
+    # Teruskan semuanya ke public/
+    RewriteCond %{REQUEST_URI} !(^|/)public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+# Cadangan bila mod_rewrite tidak aktif: tolak akses langsung ke berkas sensitif.
+<FilesMatch "^(\.env|env|composer\.(json|lock)|spark|preload\.php|phpunit\.dist\.xml|builds|README\.md|LICENSE)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>

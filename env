@@ -1,0 +1,43 @@
+#--------------------------------------------------------------------
+# Contoh konfigurasi File Manager
+#
+# Cara termudah: biarkan installer web (/install) membuat berkas .env ini otomatis.
+# Atau salin berkas ini menjadi ".env" lalu isi nilainya.
+#--------------------------------------------------------------------
+
+CI_ENVIRONMENT = production
+
+# URL situs (akhiri dengan /). Gunakan https:// bila SSL aktif.
+app.baseURL = 'http://localhost/filemanager-ci4'
+app.forceGlobalSecureRequests = false
+
+# Hanya jika hosting TIDAK mendukung mod_rewrite (URL akan memakai index.php):
+app.indexPage = 'index.php'
+
+#--------------------------------------------------------------------
+# DATABASE (MySQL / MariaDB)
+#--------------------------------------------------------------------
+database.default.hostname = localhost
+database.default.database = db_filemanager
+database.default.username = root
+database.default.password = 
+database.default.DBDriver = MySQLi
+database.default.DBPrefix =
+database.default.port = 3306
+database.default.charset = utf8mb4
+database.default.DBCollat = utf8mb4_general_ci
+
+# Aktifkan bila situs berjalan di HTTPS
+# cookie.secure = true
+
+#--------------------------------------------------------------------
+# PEMULIHAN DARURAT (opsional)
+# Jika lupa kata sandi admin dan tidak punya akses SSH: isi token acak (>= 20 karakter),
+# buka /install/reset, lalu HAPUS baris ini setelah selesai.
+#--------------------------------------------------------------------
+# fm.resetToken = 'ganti-dengan-teks-acak-yang-panjang'
+
+#--------------------------------------------------------------------
+# Hanya untuk `php spark db:seed InitialSeeder` (instalasi lewat SSH)
+#--------------------------------------------------------------------
+# ADMIN_PASSWORD = 'password-awal-admin'
