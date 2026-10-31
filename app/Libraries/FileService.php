@@ -53,6 +53,9 @@ class FileService
             'shared'     => (int) ($n['share_count'] ?? 0) > 0,
             'mine'       => $this->auth->check() && (int) ($n['owner_id'] ?? 0) === $this->auth->id(),
             'editable'   => ! $this->auth->isOwnOnly() || (int) ($n['owner_id'] ?? 0) === $this->auth->id(),
+            'visibility' => ($n['visibility'] ?? 'shared') === 'private' ? 'private' : 'shared',
+            'private'    => ($n['visibility'] ?? 'shared') === 'private',
+            'description' => $n['description'] ?? null,
             'locked'     => ! empty($n['locked_at']),
             'locked_at'  => $iso($n['locked_at'] ?? null),
             'kind'       => $this->storage->previewKind($n),
@@ -68,8 +71,8 @@ class FileService
     public function need(int $id): array
     {
         $n = $this->nodes->findActive($id);
-        if ($n === null) {
-            throw new FileException('Item tidak ditemukan.', 404);
+        if ($n === null || ! $this->nodes->isVisible($n, $this->auth->id())) {
+            throw new FileException('Item tidak ditemukan.', 404); // item pribadi orang lain = tidak ada
         }
 
         return $n;
@@ -158,6 +161,108 @@ class FileService
         $this->nodes->db->transComplete();
 
         return $n;
+    }
+
+    /** Saring daftar baris menjadi yang terlihat oleh pengguna saat ini. $deep=true untuk hasil lintas folder. */
+    public function visibleRows(array $rows, bool $deep): array
+    {
+        $me = $this->auth->id();
+        if ($deep) {
+            return $this->nodes->filterVisible($rows, $me);
+        }
+
+        return array_values(array_filter($rows, static fn ($r) => NodeModel::selfVisible($r, $me)));
+    }
+
+    /**
+     * Pindah ke folder yang berada di dalam folder pribadi: semua yang dipindah harus milik sendiri,
+     * agar pemilik aslinya tidak kehilangan akses karena item "menghilang" ke folder pribadi orang lain.
+     */
+    private function assertPrivacyCompatible(array $node, ?array $target): void
+    {
+        if ($target === null) {
+            return;
+        }
+        $me   = (int) $this->auth->id();
+        $cur  = (int) $target['id'];
+        $priv = false;
+        $g    = 0;
+        while ($cur !== 0 && $g++ < 200) {
+            $r = $this->nodes->select('id, parent_id, visibility')->find($cur);
+            if ($r === null) {
+                break;
+            }
+            if (($r['visibility'] ?? 'shared') === 'private') {
+                $priv = true;
+                break;
+            }
+            $cur = (int) ($r['parent_id'] ?? 0);
+        }
+        if (! $priv) {
+            return;
+        }
+        $foreign = (int) $node['owner_id'] !== $me
+            || ($node['type'] === 'folder' && $this->nodes->hasForeignDescendant((int) $node['id'], $me));
+        if ($foreign) {
+            throw new FileException('"' . $node['name'] . '" milik pengguna lain dan tidak dapat dimasukkan ke folder pribadi.', 403);
+        }
+    }
+
+    /**
+     * Ubah visibilitas ('private'|'shared'). Hanya PEMILIK. Folder yang berisi item milik pengguna lain
+     * tidak dapat dijadikan pribadi (agar item mereka tidak tiba-tiba hilang).
+     *
+     * @return int jumlah item yang berubah
+     */
+    public function setVisibility(array $ids, string $visibility): int
+    {
+        if (! in_array($visibility, ['private', 'shared'], true)) {
+            throw new FileException('Nilai visibilitas tidak valid.', 422);
+        }
+        $ids   = $this->normalizeIds($ids);
+        $uid   = (int) $this->auth->id();
+        $nodes = [];
+        foreach ($ids as $id) {
+            $node = $this->need($id);
+            if ((int) ($node['owner_id'] ?? 0) !== $uid) {
+                throw new FileException('Hanya pemilik yang dapat mengubah visibilitas "' . $node['name'] . '".', 403);
+            }
+            if ($visibility === 'private' && $node['type'] === 'folder' && $this->nodes->hasForeignDescendant((int) $node['id'], $uid)) {
+                throw new FileException('Folder "' . $node['name'] . '" berisi item milik pengguna lain, sehingga tidak dapat dijadikan pribadi.', 409);
+            }
+            $nodes[] = $node;
+        }
+        $now = $this->now();
+        $n   = 0;
+        $this->nodes->db->transStart();
+        foreach ($nodes as $node) {
+            if (($node['visibility'] ?? 'shared') === $visibility) {
+                continue;
+            }
+            $this->nodes->update((int) $node['id'], ['visibility' => $visibility, 'updated_at' => $now]);
+            ActivityLogModel::record($visibility === 'private' ? 'make_private' : 'make_shared', $this->auth->user(), (int) $node['id'], $node['name']);
+            $n++;
+        }
+        $this->nodes->db->transComplete();
+
+        return $n;
+    }
+
+    /** Deskripsi folder/berkas (maks. 500 karakter). Hak seperti ganti nama; item terkunci harus dibuka dulu. */
+    public function setDescription(int $id, string $text): array
+    {
+        $node = $this->need($id);
+        $this->assertCanModify($node, 'files.rename');
+        $this->assertUnlocked($node);
+
+        $text = trim(str_replace("\r\n", "\n", $text));
+        if (mb_strlen($text) > 500) {
+            throw new FileException('Deskripsi maksimal 500 karakter.', 422);
+        }
+        $this->nodes->update($id, ['description' => $text === '' ? null : $text, 'updated_at' => $this->now()]);
+        ActivityLogModel::record('describe', $this->auth->user(), $id, $node['name']);
+
+        return $this->serialize($this->nodes->find($id));
     }
 
     /** @param array<int|string> $ids */
@@ -264,6 +369,7 @@ class FileService
             $node = $this->need($id);
             $this->assertCanModify($node, 'files.move');
             $this->assertUnlocked($node);
+            $this->assertPrivacyCompatible($node, $target);
 
             $current = $node['parent_id'] !== null ? (int) $node['parent_id'] : null;
             if ($current === $tid) {
@@ -333,6 +439,8 @@ class FileService
             'parent_id' => $parentId, 'type' => $node['type'], 'name' => $name,
             'mime' => $node['mime'], 'ext' => $node['ext'], 'size' => $node['size'],
             'owner_id' => $this->auth->id(), 'created_at' => $now, 'updated_at' => $now,
+            'visibility' => ($node['visibility'] ?? 'shared') === 'private' ? 'private' : 'shared',
+            'description' => $node['description'] ?? null,
         ];
         if (! $isFolder) {
             $row['storage_name'] = $this->storage->duplicate((string) $node['storage_name']);
@@ -343,6 +451,9 @@ class FileService
 
         if ($isFolder) {
             foreach ($this->nodes->where('parent_id', (int) $node['id'])->where('deleted_at', null)->findAll() as $child) {
+                if (! NodeModel::selfVisible($child, $this->auth->id())) {
+                    continue; // item pribadi milik orang lain tidak ikut tersalin
+                }
                 $this->copyNode($child, $newId, $created);
             }
         }
@@ -363,6 +474,9 @@ class FileService
             $node = $this->need($id);
             $this->assertCanModify($node, 'files.delete');
             $this->assertUnlocked($node, true);
+            if ($node['type'] === 'folder' && $this->nodes->hasHiddenDescendant((int) $node['id'], $this->auth->id())) {
+                throw new FileException('Folder "' . $node['name'] . '" memuat item pribadi milik pengguna lain, sehingga tidak dapat dihapus.', 403);
+            }
             $nodes[] = $node;
         }
 
@@ -391,7 +505,7 @@ class FileService
     /** Item sampah tingkat-atas yang boleh dikelola pengguna saat ini. */
     public function trashList(): array
     {
-        $rows = $this->nodes->trashRoots();
+        $rows = $this->nodes->filterVisible($this->nodes->trashRoots(), $this->auth->id());
         if ($this->auth->isOwnOnly()) {
             $me   = $this->auth->id();
             $rows = array_values(array_filter($rows, static fn ($r) => (int) $r['owner_id'] === $me || (int) $r['deleted_by'] === $me));
@@ -403,7 +517,7 @@ class FileService
     private function needTrashRoot(int $id): array
     {
         $row = $this->nodes->where('id', $id)->where('trash_root_id', $id)->first();
-        if ($row === null || $row['deleted_at'] === null) {
+        if ($row === null || $row['deleted_at'] === null || ! $this->nodes->isVisible($row, $this->auth->id())) {
             throw new FileException('Item sampah tidak ditemukan.', 404);
         }
         if ($this->auth->isOwnOnly()) {
@@ -628,7 +742,7 @@ class FileService
      *
      * @param list<array> $nodes baris node aktif (sudah diperiksa izin aksesnya)
      */
-    public function buildZip(array $nodes): string
+    public function buildZip(array $nodes, bool $public = false): string
     {
         if (! class_exists(ZipArchive::class)) {
             throw new FileException('Ekstensi PHP zip tidak tersedia di server.', 500);
@@ -639,7 +753,7 @@ class FileService
         $total = 0;
         $used  = [];
         foreach ($nodes as $node) {
-            $this->collectZipEntries($node, '', $used, $plan, $total);
+            $this->collectZipEntries($node, '', $used, $plan, $total, $public);
         }
         if ($total > $this->cfg->maxZipBytes) {
             throw new FileException('Total ukuran terlalu besar untuk diunduh sebagai ZIP (maksimal ' . self::formatBytes($this->cfg->maxZipBytes) . ').', 413);
@@ -676,7 +790,7 @@ class FileService
      * @param array<string,bool> $used
      * @param list<array{0:string,1:string,2:string}> $plan
      */
-    private function collectZipEntries(array $node, string $prefix, array &$used, array &$plan, int &$total): void
+    private function collectZipEntries(array $node, string $prefix, array &$used, array &$plan, int &$total, bool $public = false): void
     {
         $name = $this->uniqueZipName($prefix, $node['name'], $used);
 
@@ -684,7 +798,11 @@ class FileService
             $plan[] = ['dir', $prefix . $name . '/', ''];
             $inner  = [];
             foreach ($this->nodes->where('parent_id', (int) $node['id'])->where('deleted_at', null)->orderBy('name')->findAll() as $child) {
-                $this->collectZipEntries($child, $prefix . $name . '/', $inner, $plan, $total);
+                // Tautan publik: item pribadi (siapa pun pemiliknya) tidak ikut. Pengguna login: item pribadi orang lain tidak ikut.
+                $ok = $public ? ($child['visibility'] ?? 'shared') !== 'private' : NodeModel::selfVisible($child, $this->auth->id());
+                if ($ok) {
+                    $this->collectZipEntries($child, $prefix . $name . '/', $inner, $plan, $total, $public);
+                }
             }
 
             return;

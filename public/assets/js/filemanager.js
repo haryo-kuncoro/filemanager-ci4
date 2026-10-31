@@ -184,6 +184,7 @@
         sort: store.get('fm-sort', 'name'),
         dir: store.get('fm-dir', 'asc'),
         q: '',
+        frozen: false,    // folder aktif terkunci / berada di folder terkunci
         crumbs: [],
         stats: null,
         folders: [],
@@ -232,6 +233,7 @@
                 S.items = data.items;
                 S.crumbs = [{ id: null, name: 'Sampah', trash: true }];
                 S.stats = null;
+                S.frozen = false;
                 S.trashDays = data.retention_days;
             } else {
                 const qs = new URLSearchParams({ parent: S.parent || 0, sort: S.sort, dir: S.dir });
@@ -241,6 +243,7 @@
                 S.items = data.items;
                 S.crumbs = data.breadcrumb;
                 S.stats = data.stats;
+                S.frozen = !!data.frozen;
             }
         } catch (e) {
             if (seq === S.loadSeq) {
@@ -338,7 +341,7 @@
     function itemEl(it) {
         const trash = S.mode === 'trash';
         const ic = iconFor(it);
-        const draggable = !trash && can('files.move') && it.editable;
+        const draggable = !trash && can('files.move') && it.editable && !it.locked && !S.frozen;
         const nameBox = h('div', { class: 'fm-name' });
 
         if (S.view === 'grid' && it.thumb && !trash) {
@@ -352,10 +355,13 @@
         const label = h('div', { class: 'min-w-0', style: 'min-width:0' },
             h('span', { class: 'label', text: it.name, title: it.name }));
         if (it.path && S.q) label.append(h('span', { class: 'sub', text: it.path }));
+        if (it.description) label.append(h('span', { class: 'desc', text: it.description.split('\n')[0], title: it.description }));
         nameBox.append(label);
         const badges = h('span', { class: 'fm-badges' });
         if (it.shared) badges.append(h('i', { class: 'bi bi-link-45deg text-primary', title: 'Memiliki tautan publik' }));
-        if (!trash && !it.editable) badges.append(h('i', { class: 'bi bi-lock-fill text-secondary', title: 'Milik pengguna lain (hanya baca)' }));
+        if (!trash && it.private) badges.append(h('i', { class: 'bi bi-eye-slash-fill text-warning', title: 'Pribadi: hanya Anda yang melihat' }));
+        if (!trash && it.locked) badges.append(h('i', { class: 'bi bi-lock-fill text-danger', title: 'Terkunci oleh pemilik' }));
+        if (!trash && !it.editable) badges.append(h('i', { class: 'bi bi-person-lock text-secondary', title: 'Milik pengguna lain (hanya baca)' }));
         if (badges.childNodes.length) label.firstChild.after(badges);
 
         const sizeText = it.type === 'folder' ? (trash && it.count !== undefined ? it.count + ' item' : '—') : fmtBytes(it.size);
@@ -365,7 +371,7 @@
         const row = h('div', {
             class: 'fm-item' + (S.selected.has(it.id) ? ' selected' : '') + (S.clip && S.clip.op === 'cut' && S.clip.ids.indexOf(it.id) !== -1 ? ' cut' : ''),
             role: 'option', 'aria-selected': S.selected.has(it.id) ? 'true' : 'false', tabindex: '-1',
-            dataset: { id: it.id }, draggable: draggable ? 'true' : null,
+            dataset: { id: it.id }, draggable: draggable ? 'true' : null, title: S.view === 'grid' && it.description ? it.name + '\n' + it.description : null,
         },
             nameBox,
             h('div', { class: 'fm-cell c-size', text: sizeText }),
@@ -390,7 +396,19 @@
             list.append(h('div', { class: 'fm-empty' }, icon(S.mode === 'trash' ? 'bi-trash3' : (S.q ? 'bi-search' : 'bi-folder2-open')), h('div', { text: msg }), sub ? h('small', { text: sub }) : null));
         } else {
             const frag = document.createDocumentFragment();
-            S.items.forEach((it) => frag.append(itemEl(it)));
+            // Judul kelompok hanya bila ada item pribadi: folder pribadi, folder bersama, berkas pribadi, berkas bersama.
+            const anyPrivate = S.mode !== 'trash' && S.items.some((i) => i.private);
+            const rank = (i) => (i.type === 'folder' ? 0 : 2) + (i.private ? 0 : 1);
+            const titles = [['bi-eye-slash-fill', 'Folder pribadi — hanya Anda', true], ['bi-people-fill', 'Folder bersama', false], ['bi-eye-slash-fill', 'Berkas pribadi — hanya Anda', true], ['bi-people-fill', 'Berkas bersama', false]];
+            let lastRank = -1;
+            S.items.forEach((it) => {
+                const rk = rank(it);
+                if (anyPrivate && rk !== lastRank) {
+                    frag.append(h('div', { class: 'fm-group' + (titles[rk][2] ? ' priv' : ''), role: 'presentation' }, icon(titles[rk][0]), titles[rk][1]));
+                }
+                lastRank = rk;
+                frag.append(itemEl(it));
+            });
             list.append(frag);
         }
         updateToolbar();
@@ -466,13 +484,14 @@
 
         const build = (pid) => {
             const ul = h('ul');
-            (kids.get(pid) || []).forEach((f) => {
+            (kids.get(pid) || []).slice().sort((a, b) => (b.private ? 1 : 0) - (a.private ? 1 : 0) || a.name.localeCompare(b.name, 'id')).forEach((f) => {
                 const has = kids.has(f.id);
                 const open = S.open.has(f.id) || ancestors.has(f.id);
                 const node = h('div', { class: 'fm-tree-node', dataset: { id: f.id, drop: f.id }, tabindex: '0', role: 'treeitem' },
                     h('span', { class: 'fm-tree-toggle' + (has ? '' : ' empty'), dataset: { toggle: f.id } }, icon(open ? 'bi-chevron-down' : 'bi-chevron-right')),
                     icon(open ? 'bi-folder2-open' : 'bi-folder-fill', 'text-warning'),
-                    h('span', { class: 'fm-tree-label', text: f.name, title: f.name }));
+                    h('span', { class: 'fm-tree-label', text: f.name, title: f.name }),
+                    f.private ? h('i', { class: 'bi bi-eye-slash-fill text-warning ms-1 small', title: 'Pribadi' }) : null);
                 const li = h('li', null, node);
                 if (has && open) li.append(build(f.id));
                 ul.append(li);
@@ -528,8 +547,9 @@
     function avail() {
         const s = sel(), n = s.length, one = n === 1;
         const files = S.mode === 'files', trash = S.mode === 'trash';
-        const allEdit = n > 0 && s.every((i) => i.editable);
-        const noSearch = files && !S.q;
+        const allEdit = n > 0 && s.every((i) => i.editable && !i.locked) && !(S.frozen && !S.q);
+        const noSearch = files && !S.q && !S.frozen;
+        const allMine = n > 0 && s.every((i) => i.mine);
         return {
             open: one,
             download: files && n >= 1 && can('files.download'),
@@ -539,6 +559,11 @@
             rename: files && one && can('files.rename') && allEdit,
             share: files && one && can('files.share') && allEdit,
             info: files && one,
+            'make-private': files && allMine && s.some((i) => !i.private),
+            'make-shared': files && allMine && s.some((i) => i.private),
+            describe: files && one && can('files.rename') && allEdit,
+            lock: files && allMine && s.some((i) => !i.locked),
+            unlock: files && allMine && s.some((i) => i.locked),
             delete: files && n >= 1 && can('files.delete') && allEdit,
             upload: noSearch && can('files.upload'),
             mkdir: noSearch && can('files.create_folder'),
@@ -636,7 +661,7 @@
             if (one && one.type === 'folder' && a.paste) items.push(h('button', { class: 'dropdown-item', type: 'button', dataset: { ctx: 'paste-into' } }, icon('bi-clipboard-check'), h('span', { text: 'Tempel ke dalam folder' })));
             items.push(h('hr', { class: 'dropdown-divider' }));
             items.push(row('copy', 'bi-files', 'Salin', 'Ctrl+C'), row('cut', 'bi-scissors', 'Potong', 'Ctrl+X'), row('rename', 'bi-input-cursor-text', 'Ubah nama', 'F2'));
-            items.push(row('share', 'bi-share', 'Bagikan tautan…'), row('info', 'bi-info-circle', 'Properti'));
+            items.push(row('share', 'bi-share', 'Bagikan tautan…'), row('describe', 'bi-card-text', 'Deskripsi…'), row('make-private', 'bi-eye-slash', 'Jadikan pribadi'), row('make-shared', 'bi-people', 'Jadikan bersama'), row('lock', 'bi-lock', 'Kunci'), row('unlock', 'bi-unlock', 'Buka kunci'), row('info', 'bi-info-circle', 'Properti'));
             items.push(row('restore', 'bi-arrow-counterclockwise', 'Pulihkan'), row('purge', 'bi-x-octagon', 'Hapus permanen', '', true));
             if (a.delete) items.push(h('hr', { class: 'dropdown-divider' }), row('delete', 'bi-trash', 'Hapus', 'Del', true));
         }
@@ -685,6 +710,11 @@
             case 'rename': actRename(sel()[0]); break;
             case 'share': openShare(sel()[0]); break;
             case 'info': showInfo(sel()[0]); break;
+            case 'make-private': actVisibility('private'); break;
+            case 'make-shared': actVisibility('shared'); break;
+            case 'describe': actDescribe(sel()[0]); break;
+            case 'lock': actLock(true); break;
+            case 'unlock': actLock(false); break;
             case 'delete': actDelete(sel()); break;
             case 'restore': actRestore(sel()); break;
             case 'purge': actPurge(sel()); break;
@@ -735,6 +765,49 @@
             S.pendingSelect = [it.id];
             await reload(it.type === 'folder');
             toast('Nama diubah.', 'success');
+        } catch (e) { fail(e); }
+    }
+
+    async function actVisibility(vis) {
+        const items = sel().filter((i) => i.mine && (vis === 'private' ? !i.private : i.private));
+        if (!items.length) return;
+        try {
+            await api('POST', '/api/visibility', { ids: items.map((i) => i.id), visibility: vis });
+            await reload(true);
+            toast(items.length + ' item ' + (vis === 'private' ? 'dijadikan pribadi (hanya Anda yang melihat).' : 'dijadikan bersama.'), 'success');
+        } catch (e) { fail(e); }
+    }
+
+    function actDescribe(it) {
+        if (!it) return;
+        const input = $('#descInput'), form = $('#descForm'), err = $('#descError');
+        $('#descName').textContent = it.name;
+        input.value = it.description || '';
+        err.textContent = '';
+        const count = () => { $('#descCount').textContent = input.value.length + '/500'; };
+        count();
+        input.oninput = count;
+        form.onsubmit = async (ev) => {
+            ev.preventDefault();
+            try {
+                await api('POST', '/api/describe', { id: it.id, description: input.value });
+                modal('modalDesc').hide();
+                S.pendingSelect = [it.id];
+                await reload(false);
+                toast('Deskripsi disimpan.', 'success');
+            } catch (e) { err.textContent = e.message; }
+        };
+        document.getElementById('modalDesc').addEventListener('shown.bs.modal', () => input.focus(), { once: true });
+        modal('modalDesc').show();
+    }
+
+    async function actLock(lock) {
+        const items = sel().filter((i) => i.mine && !!i.locked !== lock);
+        if (!items.length) return;
+        try {
+            await api('POST', '/api/lock', { ids: items.map((i) => i.id), locked: lock });
+            await reload(false);
+            toast(items.length + ' item ' + (lock ? 'dikunci' : 'dibuka kuncinya') + '.', 'success');
         } catch (e) { fail(e); }
     }
 
@@ -1202,6 +1275,9 @@
             if (r.type === 'folder' && r.stats) row('Isi', r.stats.folders + ' folder, ' + r.stats.files + ' berkas — ' + fmtBytes(r.stats.size));
             else row('Ukuran', fmtBytes(r.size) + ' (' + Number(r.size).toLocaleString('id-ID') + ' byte)');
             row('Pemilik', r.owner_name || '—');
+            row('Visibilitas', r.private ? 'Pribadi — hanya Anda yang melihat' : 'Bersama — terlihat pengguna lain');
+            row('Deskripsi', r.description || '—');
+            row('Kunci', r.locked ? 'Terkunci sejak ' + fmtDate(r.locked_at) : 'Tidak terkunci');
             row('Dibuat', fmtDate(r.created_at));
             row('Diubah', fmtDate(r.updated_at));
             row('Tautan publik', r.share ? (r.share.active ? 'Aktif' : 'Nonaktif') + ' — ' + r.share.views + ' dilihat, ' + r.share.downloads + ' diunduh' : 'Tidak ada');

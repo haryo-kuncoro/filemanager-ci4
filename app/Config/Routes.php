@@ -52,6 +52,8 @@ $routes->group('', ['filter' => 'auth'], static function ($routes) {
         $routes->post('move', 'Api\Nodes::move', ['filter' => 'perm:files.move']);
         $routes->post('copy', 'Api\Nodes::copy', ['filter' => 'perm:files.copy']);
         $routes->post('lock', 'Api\Nodes::lock', ['filter' => 'perm:files.view']);
+        $routes->post('visibility', 'Api\Nodes::visibility', ['filter' => 'perm:files.view']);
+        $routes->post('describe', 'Api\Nodes::describe', ['filter' => 'perm:files.rename']);
         $routes->post('delete', 'Api\Nodes::delete', ['filter' => 'perm:files.delete']);
 
         $routes->post('upload', 'Api\Upload::chunk', ['filter' => 'perm:files.upload']);

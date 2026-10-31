@@ -1,6 +1,9 @@
 <?php
 /** @var array $client */
 $canUpload = can('files.upload');
+$fmCfg     = config('Filemanager');
+$blocked   = array_values(array_unique($fmCfg->blockedExtensions));
+sort($blocked);
 ?>
 <?= $this->extend('layouts/app') ?>
 
@@ -30,6 +33,7 @@ $canUpload = can('files.upload');
                         </ul>
                     <?php endif; ?>
                 </div>
+                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#modalUploadInfo" title="Jenis berkas & batas unggahan"><i class="bi bi-info-circle-fill"></i> <span class="d-none d-xl-inline">Jenis berkas</span></button>
             <?php endif; ?>
             <?php if (can('files.create_folder')): ?>
                 <button class="btn btn-sm btn-outline-secondary" data-act="mkdir" title="Folder baru"><i class="bi bi-folder-plus"></i> <span class="d-none d-xl-inline">Folder baru</span></button>
@@ -41,6 +45,9 @@ $canUpload = can('files.upload');
             <?php if (can('files.copy') || can('files.move')): ?><button class="btn btn-sm btn-outline-secondary" data-act="paste" title="Tempel (Ctrl+V)"><i class="bi bi-clipboard-check"></i></button><?php endif; ?>
             <?php if (can('files.rename')): ?><button class="btn btn-sm btn-outline-secondary" data-act="rename" title="Ubah nama (F2)"><i class="bi bi-input-cursor-text"></i></button><?php endif; ?>
             <?php if (can('files.share')): ?><button class="btn btn-sm btn-outline-secondary" data-act="share" title="Bagikan lewat tautan"><i class="bi bi-share"></i></button><?php endif; ?>
+            <button class="btn btn-sm btn-outline-secondary" data-act="make-private" title="Jadikan pribadi (hanya Anda yang melihat)"><i class="bi bi-eye-slash"></i></button>
+            <button class="btn btn-sm btn-outline-secondary" data-act="make-shared" title="Jadikan bersama (terlihat pengguna lain)"><i class="bi bi-people"></i></button>
+            <button class="btn btn-sm btn-outline-secondary" data-act="describe" title="Deskripsi"><i class="bi bi-card-text"></i></button>
             <button class="btn btn-sm btn-outline-secondary" data-act="lock" title="Kunci (hanya pemilik)"><i class="bi bi-lock"></i></button>
             <button class="btn btn-sm btn-outline-secondary" data-act="unlock" title="Buka kunci"><i class="bi bi-unlock"></i></button>
             <button class="btn btn-sm btn-outline-secondary" data-act="info" title="Properti"><i class="bi bi-info-circle"></i></button>
@@ -78,6 +85,9 @@ $canUpload = can('files.upload');
                 <div class="fm-side-link" id="navTrash" role="button" tabindex="0"><i class="bi bi-trash3"></i> Sampah</div>
             <?php endif; ?>
             <div class="fm-usage" id="fmUsage"></div>
+            <?php if ($canUpload): ?>
+                <div class="fm-usage"><a href="#" data-bs-toggle="modal" data-bs-target="#modalUploadInfo" class="text-decoration-none"><i class="bi bi-info-circle me-1"></i>Jenis berkas yang boleh diunggah</a></div>
+            <?php endif; ?>
         </aside>
 
         <section class="fm-main" id="fmMain">
@@ -195,6 +205,54 @@ $canUpload = can('files.upload');
                 <button type="button" class="btn btn-primary" id="shSave"><i class="bi bi-save me-1"></i>Simpan</button>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- ===================== Modal: info jenis berkas ===================== -->
+<div class="modal fade" id="modalUploadInfo" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title"><i class="bi bi-info-circle me-1"></i>Jenis berkas yang boleh diunggah</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
+            <div class="modal-body">
+                <?php if (! $canUpload): ?><div class="alert alert-secondary small py-2">Peran Anda tidak memiliki izin mengunggah.</div><?php endif; ?>
+                <p class="mb-2"><i class="bi bi-check-circle-fill text-success me-1"></i><strong>Diizinkan:</strong> semua jenis berkas, <em>kecuali</em> ekstensi yang dilarang di bawah ini. Contoh yang umum:</p>
+                <ul class="small">
+                    <li><strong>Dokumen:</strong> pdf, doc, docx, xls, xlsx, ppt, pptx, odt, ods, odp, txt, csv, rtf, md</li>
+                    <li><strong>Gambar:</strong> jpg, jpeg, png, gif, webp, bmp, svg, ico, tiff</li>
+                    <li><strong>Audio &amp; video:</strong> mp3, wav, ogg, m4a, mp4, webm, mov, mkv, avi</li>
+                    <li><strong>Arsip:</strong> zip, rar, 7z, tar, gz</li>
+                    <li><strong>Data &amp; teks lain:</strong> json, xml, sql, log, html, css, js (tidak dijalankan di server)</li>
+                </ul>
+                <p class="mb-2"><i class="bi bi-x-circle-fill text-danger me-1"></i><strong>Dilarang</strong> (demi keamanan server):</p>
+                <div class="d-flex flex-wrap gap-1 mb-2">
+                    <?php foreach ($blocked as $ext): ?><span class="badge text-bg-danger-subtle border border-danger-subtle text-danger-emphasis">.<?= esc($ext) ?></span><?php endforeach; ?>
+                </div>
+                <p class="small text-body-secondary mb-3">Ekstensi ganda yang menyamarkan skrip, mis. <code>foto.php.jpg</code>, juga ditolak.</p>
+                <hr>
+                <ul class="small mb-0">
+                    <li>Ukuran maksimum per berkas: <strong><?= esc(fm_bytes((int) $fmCfg->maxFileSize)) ?></strong>.</li>
+                    <li>Berkas diunggah per potongan (<?= esc(fm_bytes((int) $client['chunkSize'])) ?>), sehingga berkas besar tetap aman di hosting dengan batas kecil.</li>
+                    <li>Berkas dengan nama yang sudah ada otomatis diberi nomor, tidak menimpa.</li>
+                    <li>Hanya sebagian jenis yang dapat dipratinjau langsung (gambar, PDF, audio, video, teks); lainnya cukup diunduh.</li>
+                </ul>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-primary" data-bs-dismiss="modal">Mengerti</button></div>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== Modal: deskripsi ===================== -->
+<div class="modal fade" id="modalDesc" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form class="modal-content" id="descForm">
+            <div class="modal-header"><h5 class="modal-title"><i class="bi bi-card-text me-1"></i>Deskripsi</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button></div>
+            <div class="modal-body">
+                <div class="small text-body-secondary mb-2 text-truncate" id="descName"></div>
+                <textarea class="form-control" id="descInput" rows="5" maxlength="500" placeholder="Tulis keterangan untuk item ini (opsional)"></textarea>
+                <div class="d-flex justify-content-between small text-body-secondary mt-1"><span id="descError" class="text-danger"></span><span id="descCount">0/500</span></div>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button><button class="btn btn-primary" type="submit">Simpan</button></div>
+        </form>
     </div>
 </div>
 

@@ -95,7 +95,7 @@ class Share extends BaseController
         $reqId   = (int) $this->request->getGet('f');
         if ($reqId > 0 && $reqId !== (int) $node['id']) {
             $cand = $nodes->findActive($reqId);
-            if ($cand === null || $cand['type'] !== 'folder' || ! $nodes->isWithin($reqId, (int) $node['id'])) {
+            if ($cand === null || $cand['type'] !== 'folder' || ! $nodes->isWithin($reqId, (int) $node['id']) || ! $nodes->publiclyReachable($reqId, (int) $node['id'])) {
                 return $this->unavailable('Folder tidak ditemukan pada tautan ini.');
             }
             $current = $cand;
@@ -117,7 +117,10 @@ class Share extends BaseController
 
         $data['current']  = $current;
         $data['crumbs']   = $crumbs;
-        $data['children'] = $nodes->children((int) $current['id'], 'name', 'asc');
+        $data['children'] = array_values(array_filter(
+            $nodes->children((int) $current['id'], 'name', 'asc'),
+            static fn ($c) => ($c['visibility'] ?? 'shared') !== 'private'
+        ));
 
         return view('share/folder', $data);
     }
@@ -167,7 +170,7 @@ class Share extends BaseController
             $nodes = $files->nodes();
 
             $target = $nodes->findActive($id);
-            if ($target === null || $target['type'] !== 'file' || ! $nodes->isWithin($id, (int) $node['id'])) {
+            if ($target === null || $target['type'] !== 'file' || ! $nodes->isWithin($id, (int) $node['id']) || ! $nodes->publiclyReachable($id, (int) $node['id'])) {
                 throw new FileException('Berkas tidak ditemukan pada tautan ini.', 404);
             }
 
@@ -238,12 +241,12 @@ class Share extends BaseController
             $reqId  = (int) $this->request->getGet('f');
             if ($reqId > 0 && $reqId !== (int) $node['id']) {
                 $target = $nodes->findActive($reqId);
-                if ($target === null || ! $nodes->isWithin($reqId, (int) $node['id'])) {
+                if ($target === null || ! $nodes->isWithin($reqId, (int) $node['id']) || ! $nodes->publiclyReachable($reqId, (int) $node['id'])) {
                     throw new FileException('Item tidak ditemukan pada tautan ini.', 404);
                 }
             }
 
-            $path = $files->buildZip([$target]);
+            $path = $files->buildZip([$target], true);
             (new ShareModel())->builder()->where('id', (int) $share['id'])->set('download_count', 'download_count + 1', false)->update();
             ActivityLogModel::record('share_download', null, (int) $target['id'], $target['name'] . '.zip', ['token' => substr($token, 0, 8)]);
 

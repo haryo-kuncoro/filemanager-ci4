@@ -21,7 +21,7 @@ class Nodes extends BaseController
             $dir    = (string) ($this->request->getGet('dir') ?: 'asc');
 
             $folder = $files->needFolder($parent);
-            $rows   = $nodes->children($parent, $sort, $dir, $q !== '' ? $q : null);
+            $rows   = $files->visibleRows($nodes->children($parent, $sort, $dir, $q !== '' ? $q : null), $q !== '');
 
             $pathCache = [];
             $items     = [];
@@ -60,6 +60,27 @@ class Nodes extends BaseController
         });
     }
 
+    /** POST api/visibility {ids, visibility:'private'|'shared'} — hanya pemilik. */
+    public function visibility()
+    {
+        return $this->guard(function () {
+            $in = $this->input();
+            $n  = service('files')->setVisibility((array) ($in['ids'] ?? []), (string) ($in['visibility'] ?? ''));
+
+            return $this->ok(['changed' => $n]);
+        });
+    }
+
+    /** POST api/describe {id, description} */
+    public function describe()
+    {
+        return $this->guard(function () {
+            $in = $this->input();
+
+            return $this->ok(['item' => service('files')->setDescription((int) ($in['id'] ?? 0), (string) ($in['description'] ?? ''))]);
+        });
+    }
+
     /** POST api/lock {ids, locked:bool} — hanya pemilik. */
     public function lock()
     {
@@ -74,9 +95,11 @@ class Nodes extends BaseController
     public function tree()
     {
         return $this->guard(function () {
+            $files   = service('files');
             $folders = array_map(static fn ($f) => [
                 'id' => (int) $f['id'], 'parent_id' => $f['parent_id'] !== null ? (int) $f['parent_id'] : null, 'name' => $f['name'],
-            ], service('files')->nodes()->allFolders());
+                'private' => ($f['visibility'] ?? 'shared') === 'private',
+            ], $files->nodes()->filterVisible($files->nodes()->allFolders(), service('auth')->id()));
 
             return $this->ok(['folders' => $folders]);
         });

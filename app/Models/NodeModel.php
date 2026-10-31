@@ -17,7 +17,7 @@ class NodeModel extends Model
     protected $useTimestamps    = true;
     protected $allowedFields    = [
         'parent_id', 'type', 'name', 'storage_name', 'mime', 'ext', 'size', 'owner_id',
-        'deleted_at', 'deleted_by', 'trash_root_id', 'locked_by', 'locked_at',
+        'deleted_at', 'deleted_by', 'trash_root_id', 'locked_by', 'locked_at', 'visibility', 'description',
     ];
 
     /** Node aktif (tidak di sampah) berdasarkan id. */
@@ -38,7 +38,7 @@ class NodeModel extends Model
             // Pencarian di seluruh pohon. Karakter wildcard (% _) dari pengguna di-escape agar dicari apa adanya.
             $char    = $this->db->likeEscapeChar;
             $escaped = str_replace([$char, '%', '_'], [$char . $char, $char . '%', $char . '_'], $q);
-            $b->like('n.name', $escaped, 'both', true, true);
+            $b->groupStart()->like('n.name', $escaped, 'both', true, true)->orLike('n.description', $escaped, 'both', true, true)->groupEnd();
         } else {
             $b->where('n.parent_id', $parentId);
         }
@@ -61,16 +61,163 @@ class NodeModel extends Model
 
         $rows = $b->get()->getResultArray();
 
-        // Folder selalu di atas.
-        usort($rows, static fn ($a, $c) => ($a['type'] === 'folder' ? 0 : 1) <=> ($c['type'] === 'folder' ? 0 : 1));
+        // Urutan kelompok (stabil; urutan di dalam kelompok mengikuti $sort):
+        // folder pribadi, folder bersama, berkas pribadi, berkas bersama.
+        usort($rows, static fn ($a, $c) => self::groupRank($a) <=> self::groupRank($c));
 
         return $rows;
+    }
+
+    public static function groupRank(array $r): int
+    {
+        return ($r['type'] === 'folder' ? 0 : 2) + (($r['visibility'] ?? 'shared') === 'private' ? 0 : 1);
+    }
+
+    // ------------------------------------------------------------------
+    // Visibilitas: item 'private' hanya terlihat oleh pemiliknya. Folder pribadi
+    // menyembunyikan seluruh isinya dari pengguna lain.
+    // ------------------------------------------------------------------
+
+    /** Apakah baris ini (tanpa melihat induknya) terlihat oleh $viewer? */
+    public static function selfVisible(array $row, ?int $viewer): bool
+    {
+        return ($row['visibility'] ?? 'shared') !== 'private'
+            || ($viewer !== null && (int) ($row['owner_id'] ?? 0) === $viewer);
+    }
+
+    /** Node + seluruh induknya terlihat oleh $viewer? (jalan naik; baris yang sudah di sampah ikut diperiksa) */
+    public function isVisible(array $node, ?int $viewer): bool
+    {
+        if (! self::selfVisible($node, $viewer)) {
+            return false;
+        }
+        $cur   = $node['parent_id'] !== null ? (int) $node['parent_id'] : null;
+        $guard = 0;
+        while ($cur !== null && $guard++ < 200) {
+            $row = $this->select('id, parent_id, owner_id, visibility')->find($cur);
+            if ($row === null) {
+                return true;
+            }
+            if (! self::selfVisible($row, $viewer)) {
+                return false;
+            }
+            $cur = $row['parent_id'] !== null ? (int) $row['parent_id'] : null;
+        }
+
+        return true;
+    }
+
+    /** @return array<int,true> id folder yang TIDAK terlihat oleh $viewer (pribadi milik orang lain atau di dalamnya). */
+    public function hiddenFolders(?int $viewer): array
+    {
+        $map = [];
+        foreach ($this->builder()->select('id, parent_id, owner_id, visibility')->where('type', 'folder')->get()->getResultArray() as $r) {
+            $map[(int) $r['id']] = $r;
+        }
+        $memo = [];
+        $hide = static function (int $id) use (&$hide, &$memo, $map, $viewer): bool {
+            if (isset($memo[$id])) {
+                return $memo[$id];
+            }
+            $memo[$id] = false; // pelindung siklus
+            $r = $map[$id] ?? null;
+            if ($r === null) {
+                return false;
+            }
+            $h = ! self::selfVisible($r, $viewer) || ($r['parent_id'] !== null && $hide((int) $r['parent_id']));
+
+            return $memo[$id] = $h;
+        };
+        $out = [];
+        foreach (array_keys($map) as $id) {
+            if ($hide($id)) {
+                $out[$id] = true;
+            }
+        }
+
+        return $out;
+    }
+
+    /** Saring baris (yang bisa berasal dari folder berbeda) sehingga hanya yang terlihat oleh $viewer. */
+    public function filterVisible(array $rows, ?int $viewer): array
+    {
+        $hidden = $this->hiddenFolders($viewer);
+
+        return array_values(array_filter($rows, static function ($r) use ($hidden, $viewer) {
+            return self::selfVisible($r, $viewer) && ($r['parent_id'] === null || ! isset($hidden[(int) $r['parent_id']]));
+        }));
+    }
+
+    /** Ada item di bawah folder $id yang tidak terlihat oleh $viewer? */
+    public function hasHiddenDescendant(int $id, ?int $viewer): bool
+    {
+        foreach ($this->descendants($id) as $d) {
+            if (! self::selfVisible($d, $viewer)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Ada item (termasuk di sampah) milik pengguna lain di bawah folder $id? */
+    public function hasForeignDescendant(int $id, int $owner): bool
+    {
+        foreach ($this->descendants($id, true) as $d) {
+            if ((int) ($d['owner_id'] ?? 0) !== $owner) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Keturunan yang terlihat oleh $viewer (folder tersembunyi beserta isinya dilewati). */
+    public function visibleDescendants(int $id, ?int $viewer): array
+    {
+        $all      = [];
+        $frontier = [$id];
+        $guard    = 0;
+        while ($frontier !== [] && $guard++ < 200) {
+            $rows     = $this->builder()->whereIn('parent_id', $frontier)->where('deleted_at', null)->get()->getResultArray();
+            $frontier = [];
+            foreach ($rows as $row) {
+                if (! self::selfVisible($row, $viewer)) {
+                    continue;
+                }
+                $all[] = $row;
+                if ($row['type'] === 'folder') {
+                    $frontier[] = (int) $row['id'];
+                }
+            }
+        }
+
+        return $all;
+    }
+
+    /** Untuk tautan publik: semua node dari $id naik ke (tidak termasuk) $rootId harus 'shared'. */
+    public function publiclyReachable(int $id, int $rootId): bool
+    {
+        $cur   = $id;
+        $guard = 0;
+        while ($cur !== null && $guard++ < 200) {
+            if ($cur === $rootId) {
+                return true;
+            }
+            $row = $this->select('id, parent_id, visibility')->find($cur);
+            if ($row === null || ($row['visibility'] ?? 'shared') === 'private') {
+                return false;
+            }
+            $cur = $row['parent_id'] !== null ? (int) $row['parent_id'] : null;
+        }
+
+        return false;
     }
 
     /** Daftar semua folder aktif (untuk pohon samping). */
     public function allFolders(): array
     {
-        return $this->select('id, parent_id, name')
+        return $this->select('id, parent_id, name, owner_id, visibility')
             ->where('type', 'folder')
             ->where('deleted_at', null)
             ->orderBy('name', 'ASC')
@@ -240,7 +387,7 @@ class NodeModel extends Model
         $files = 0;
         $dirs  = 0;
         $size  = 0;
-        foreach ($this->descendants($id) as $row) {
+        foreach ($this->visibleDescendants($id, service('auth')->id()) as $row) {
             if ($row['type'] === 'folder') {
                 $dirs++;
             } else {
