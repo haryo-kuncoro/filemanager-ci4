@@ -32,6 +32,8 @@ class InitialSeeder extends Seeder
         'roles.manage'        => ['Mengelola peran & izin', 'Administrasi'],
         'shares.manage'       => ['Mengelola semua tautan publik', 'Administrasi'],
         'logs.view'           => ['Melihat log aktivitas', 'Administrasi'],
+        'backup.manage'       => ['Backup: buat, unduh, unggah, hapus (berisi data & hash sandi SELURUH pengguna)', 'Administrasi'],
+        'backup.restore'      => ['Backup: memulihkan data (mengganti SEMUA data; setara akses penuh)', 'Administrasi'],
     ];
 
     public function run(): void

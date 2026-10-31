@@ -82,7 +82,7 @@ class Auth
         return true;
     }
 
-    /** Hanya peran bawaan "administrator" (bukan sekadar punya izin) yang lolos. */
+    /** Peran bawaan "administrator" (dipakai untuk halaman Pembaruan Database). */
     public function isAdministrator(): bool
     {
         $u = $this->user();

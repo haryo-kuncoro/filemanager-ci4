@@ -98,11 +98,11 @@ $routes->group('', ['filter' => 'auth'], static function ($routes) {
         $routes->get('database', 'Admin\Database::index', ['filter' => 'admin']);
         $routes->post('database/migrate', 'Admin\Database::migrate', ['filter' => 'admin']);
 
-        $routes->get('backups', 'Admin\Backups::index', ['filter' => 'admin']);
-        $routes->post('backups', 'Admin\Backups::create', ['filter' => 'admin']);
-        $routes->post('backups/upload', 'Admin\Backups::upload', ['filter' => 'admin']);
-        $routes->get('backups/download/(:segment)', 'Admin\Backups::download/$1', ['filter' => 'admin']);
-        $routes->post('backups/restore', 'Admin\Backups::restore', ['filter' => 'admin']);
-        $routes->post('backups/delete', 'Admin\Backups::delete', ['filter' => 'admin']);
+        $routes->get('backups', 'Admin\Backups::index', ['filter' => 'perm:backup.manage']);
+        $routes->post('backups', 'Admin\Backups::create', ['filter' => 'perm:backup.manage']);
+        $routes->post('backups/upload', 'Admin\Backups::upload', ['filter' => 'perm:backup.manage']);
+        $routes->get('backups/download/(:segment)', 'Admin\Backups::download/$1', ['filter' => 'perm:backup.manage']);
+        $routes->post('backups/restore', 'Admin\Backups::restore', ['filter' => 'perm:backup.manage,backup.restore']);
+        $routes->post('backups/delete', 'Admin\Backups::delete', ['filter' => 'perm:backup.manage']);
     });
 });

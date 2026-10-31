@@ -10,7 +10,7 @@ use App\Libraries\StreamResponse;
 use App\Models\ActivityLogModel;
 use App\Models\UserModel;
 
-/** Backup & pemulihan seluruh data. Rute dilindungi filter `admin` (hanya administrator). */
+/** Backup & pemulihan seluruh data. Rute dilindungi izin backup.manage (dan backup.restore untuk memulihkan). */
 class Backups extends BaseController
 {
     private function svc(): Backup

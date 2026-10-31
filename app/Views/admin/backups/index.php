@@ -9,7 +9,7 @@
 <div class="alert alert-info small">
     Backup berisi <strong>seluruh database</strong> (pengguna beserta hash kata sandi, peran, struktur folder, tautan, log) dan <strong>seluruh isi berkas</strong>.
     Simpan di tempat aman dan <strong>unduh salinannya ke komputer Anda</strong> — folder backup berada di server yang sama dengan data.
-    Untuk install ulang: pasang aplikasi, login, lalu unggah backup di bawah dan pulihkan.
+    Untuk install ulang: pasang aplikasi, login, lalu unggah backup di bawah dan pulihkan<?= can('backup.restore') ? '' : ' (butuh izin Backup: memulihkan)' ?>.
 </div>
 
 <div class="row g-3 mb-4">
@@ -59,7 +59,7 @@
                     <td class="text-end"><?= esc(fm_bytes($b['size'])) ?></td>
                     <td class="text-end text-nowrap">
                         <a class="btn btn-sm btn-outline-secondary" href="<?= site_url('admin/backups/download/' . rawurlencode($b['name'])) ?>" title="Unduh"><i class="bi bi-download"></i></a>
-                        <?php if ($m): ?><button class="btn btn-sm btn-outline-warning" type="button" data-restore="<?= esc($b['name'], 'attr') ?>" title="Pulihkan"><i class="bi bi-arrow-counterclockwise"></i> Pulihkan</button><?php endif; ?>
+                        <?php if ($m && can('backup.restore')): ?><button class="btn btn-sm btn-outline-warning" type="button" data-restore="<?= esc($b['name'], 'attr') ?>" title="Pulihkan"><i class="bi bi-arrow-counterclockwise"></i> Pulihkan</button><?php endif; ?>
                         <form class="d-inline" method="post" action="<?= site_url('admin/backups/delete') ?>" onsubmit="return confirm('Hapus backup ini?')">
                             <?= csrf_field() ?><input type="hidden" name="name" value="<?= esc($b['name'], 'attr') ?>">
                             <button class="btn btn-sm btn-outline-danger" title="Hapus"><i class="bi bi-trash"></i></button>
@@ -72,6 +72,7 @@
     </div>
 </div>
 
+<?php if (can('backup.restore')): ?>
 <div class="modal fade" id="modalRestore" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog"><form class="modal-content" method="post" action="<?= site_url('admin/backups/restore') ?>">
         <?= csrf_field() ?>
@@ -85,6 +86,7 @@
         <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button><button class="btn btn-danger">Pulihkan sekarang</button></div>
     </form></div>
 </div>
+<?php endif; ?>
 
 <script id="bk-config" type="application/json"><?= json_encode(['chunk' => $chunkSize, 'max' => $maxUpload, 'csrfName' => $csrfName, 'csrfHeader' => $csrfHeader, 'csrfHash' => csrf_hash(), 'url' => site_url('admin/backups/upload')], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 <script src="<?= base_url('assets/js/backups.js') ?>?v=<?= @filemtime(FCPATH . 'assets/js/backups.js') ?>"></script>
