@@ -18,7 +18,7 @@
                     <div class="mb-3">
                         <label class="form-label" for="new_password">Kata sandi baru</label>
                         <input type="password" class="form-control" id="new_password" name="new_password" minlength="<?= $min ?>" required autocomplete="new-password">
-                        <div class="form-text">Minimal <?= $min ?> karakter.</div>
+                        <div class="form-text">Minimal <?= $min ?> karakter, memuat huruf dan angka/simbol, tidak mengandung username.</div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label" for="confirm_password">Ulangi kata sandi baru</label>

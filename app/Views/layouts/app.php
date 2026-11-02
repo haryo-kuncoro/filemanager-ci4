@@ -17,6 +17,7 @@ $active = static fn (string $prefix): string => str_starts_with($path, $prefix) 
     <link rel="stylesheet" href="<?= base_url('assets/vendor/bootstrap/css/bootstrap.min.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/vendor/bootstrap-icons/bootstrap-icons.min.css') ?>">
     <link rel="stylesheet" href="<?= base_url('assets/css/app.css') ?>">
+    <?= view('layouts/pwa_head') ?>
     <script>
         try { document.documentElement.setAttribute('data-bs-theme', localStorage.getItem('fm-theme') || 'light'); } catch (e) {}
     </script>
@@ -36,7 +37,7 @@ $active = static fn (string $prefix): string => str_starts_with($path, $prefix) 
                 <?php if (can('files.view')): ?>
                     <li class="nav-item"><a class="nav-link <?= $active('files') ?>" href="<?= site_url('files') ?>"><i class="bi bi-folder2-open"></i> Berkas</a></li>
                 <?php endif; ?>
-                <?php if (can('users.manage') || can('roles.manage') || can('shares.manage') || can('logs.view') || can('backup.manage') || is_admin()): ?>
+                <?php if (can('users.manage') || can('roles.manage') || can('shares.manage') || can('logs.view') || can('backup.manage') || can('settings.manage') || is_admin()): ?>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle <?= $active('admin') ?>" href="#" data-bs-toggle="dropdown"><i class="bi bi-gear"></i> Administrasi</a>
                         <ul class="dropdown-menu">
@@ -44,6 +45,7 @@ $active = static fn (string $prefix): string => str_starts_with($path, $prefix) 
                             <?php if (can('roles.manage')): ?><li><a class="dropdown-item" href="<?= site_url('admin/roles') ?>"><i class="bi bi-shield-lock me-2"></i>Peran &amp; Izin</a></li><?php endif; ?>
                             <?php if (can('shares.manage')): ?><li><a class="dropdown-item" href="<?= site_url('admin/shares') ?>"><i class="bi bi-link-45deg me-2"></i>Tautan Dibagikan</a></li><?php endif; ?>
                             <?php if (can('logs.view')): ?><li><a class="dropdown-item" href="<?= site_url('admin/logs') ?>"><i class="bi bi-journal-text me-2"></i>Log Aktivitas</a></li><?php endif; ?>
+                            <?php if (can('settings.manage')): ?><li><a class="dropdown-item" href="<?= site_url('admin/settings') ?>"><i class="bi bi-sliders me-2"></i>Pengaturan</a></li><?php endif; ?>
                             <?php if (can('backup.manage') || is_admin()): ?><li><hr class="dropdown-divider"></li><?php endif; ?>
                             <?php if (can('backup.manage')): ?><li><a class="dropdown-item" href="<?= site_url('admin/backups') ?>"><i class="bi bi-database-down me-2"></i>Backup &amp; Pemulihan</a></li><?php endif; ?>
                             <?php if (is_admin()): ?><li><a class="dropdown-item" href="<?= site_url('admin/database') ?>"><i class="bi bi-database-gear me-2"></i>Pembaruan Database</a></li><?php endif; ?>
@@ -52,6 +54,7 @@ $active = static fn (string $prefix): string => str_starts_with($path, $prefix) 
                 <?php endif; ?>
             </ul>
             <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-sm btn-outline-primary d-none" id="installBtn" type="button" title="Pasang sebagai aplikasi"><i class="bi bi-download"></i> <span class="d-none d-lg-inline">Pasang</span></button>
                 <button class="btn btn-sm btn-outline-secondary" id="themeToggle" type="button" title="Ganti tema"><i class="bi bi-moon-stars"></i></button>
                 <?php if ($user): ?>
                     <div class="dropdown">
@@ -96,6 +99,7 @@ $active = static fn (string $prefix): string => str_starts_with($path, $prefix) 
         try { localStorage.setItem('fm-theme', next); } catch (e) {}
     });
 </script>
+<?= view('layouts/pwa_script') ?>
 <?= $this->renderSection('scripts') ?>
 </body>
 </html>

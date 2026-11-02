@@ -20,7 +20,7 @@ class Backup
     public const FORMAT = 1;
 
     /** Urutan dependensi (induk dulu). */
-    public const TABLES = ['roles', 'permissions', 'role_permissions', 'users', 'nodes', 'shares', 'activity_logs'];
+    public const TABLES = ['roles', 'permissions', 'role_permissions', 'users', 'nodes', 'shares', 'activity_logs', 'settings'];
 
     private BaseConnection $db;
 
@@ -333,6 +333,10 @@ class Backup
         try {
             $db->transException(true)->transStart();
             foreach (array_reverse(self::TABLES) as $t) {
+                // Backup lama (sebelum ada tabel settings) tidak boleh menghapus pengaturan yang ada.
+                if ($t === 'settings' && $zip->locateName('database/settings.jsonl') === false) {
+                    continue;
+                }
                 if ($db->tableExists($t)) {
                     $db->table($t)->emptyTable(); // DELETE FROM (aman dalam transaksi)
                 }

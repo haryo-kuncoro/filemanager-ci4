@@ -7,6 +7,7 @@ use CodeIgniter\Router\RouteCollection;
  */
 
 $routes->setAutoRoute(false); // semua rute didaftarkan eksplisit
+$routes->set404Override('App\Controllers\ErrorPage::notFound'); // halaman 404 kustom
 
 // ---------------------------------------------------------------------
 // Publik (tanpa login)
@@ -14,6 +15,8 @@ $routes->setAutoRoute(false); // semua rute didaftarkan eksplisit
 $routes->get('login', 'Login::index');
 $routes->post('login', 'Login::attempt');
 $routes->post('logout', 'Login::logout');
+$routes->get('manifest.webmanifest', 'Pwa::manifest'); // PWA
+$routes->get('brand/logo', 'Brand::logo');           // logo untuk halaman login
 
 // Pemasangan via web & reset darurat (terkunci otomatis / butuh token di .env)
 $routes->get('install', 'Install::index');
@@ -100,6 +103,9 @@ $routes->group('', ['filter' => 'auth'], static function ($routes) {
         $routes->get('database', 'Admin\Database::index', ['filter' => 'admin']);
         $routes->post('database/migrate', 'Admin\Database::migrate', ['filter' => 'admin']);
 
+        $routes->get('settings', 'Admin\Settings::index', ['filter' => 'perm:settings.manage']);
+        $routes->post('settings/logo', 'Admin\Settings::uploadLogo', ['filter' => 'perm:settings.manage']);
+        $routes->post('settings/logo/delete', 'Admin\Settings::deleteLogo', ['filter' => 'perm:settings.manage']);
         $routes->get('backups', 'Admin\Backups::index', ['filter' => 'perm:backup.manage']);
         $routes->post('backups', 'Admin\Backups::create', ['filter' => 'perm:backup.manage']);
         $routes->post('backups/upload', 'Admin\Backups::upload', ['filter' => 'perm:backup.manage']);

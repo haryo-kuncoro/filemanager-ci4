@@ -58,12 +58,16 @@ class Install extends BaseController
             'admin_name'     => 'required|min_length[2]|max_length[100]',
             'admin_username' => 'required|alpha_dash|min_length[3]|max_length[50]',
             'admin_email'    => 'permit_empty|valid_email|max_length[150]',
-            'admin_password' => 'required|min_length[' . config('Filemanager')->minPasswordLength . ']|max_length[72]',
+            'admin_password' => 'required',
             'admin_confirm'  => 'required|matches[admin_password]',
         ];
         $messages = ['admin_confirm' => ['matches' => 'Konfirmasi kata sandi admin tidak sama.']];
         if (! $this->validate($rules, $messages)) {
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        }
+        $pwErr = \App\Libraries\PasswordPolicy::check((string) $this->request->getPost('admin_password'), (string) $this->request->getPost('admin_username'), (string) $this->request->getPost('admin_name'));
+        if ($pwErr !== null) {
+            return redirect()->back()->withInput()->with('errors', ['admin_password' => $pwErr]);
         }
 
         $p      = $this->request->getPost();
@@ -127,13 +131,16 @@ class Install extends BaseController
             return redirect()->back()->with('error', 'Terlalu banyak percobaan. Coba lagi dalam beberapa menit.');
         }
 
-        $min = $cfg->minPasswordLength;
         if (! $this->validate([
             'token'    => 'required',
             'username' => 'required',
-            'password' => "required|min_length[{$min}]|max_length[72]",
+            'password' => 'required',
         ])) {
             return redirect()->back()->with('errors', $this->validator->getErrors());
+        }
+        $pwErr = \App\Libraries\PasswordPolicy::check((string) $this->request->getPost('password'), (string) $this->request->getPost('username'));
+        if ($pwErr !== null) {
+            return redirect()->back()->with('errors', ['password' => $pwErr]);
         }
 
         if (! hash_equals($token, (string) $this->request->getPost('token'))) {

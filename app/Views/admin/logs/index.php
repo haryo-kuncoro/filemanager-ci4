@@ -8,7 +8,7 @@ $labels = [
     'share_delete' => 'Cabut tautan', 'share_view' => 'Tautan dilihat', 'share_download' => 'Tautan diunduh', 'share_disable' => 'Nonaktifkan tautan',
     'share_enable' => 'Aktifkan tautan', 'user_create' => 'Pengguna baru', 'user_update' => 'Ubah pengguna', 'user_delete' => 'Hapus pengguna',
     'role_create' => 'Peran baru', 'role_update' => 'Ubah peran', 'role_delete' => 'Hapus peran', 'password_change' => 'Ganti sandi', 'db_migrate' => 'Migrasi database', 'make_private' => 'Jadikan pribadi', 'make_shared' => 'Jadikan bersama', 'describe' => 'Ubah deskripsi', 'lock' => 'Kunci', 'unlock' => 'Buka kunci',
-    'backup_create' => 'Buat backup', 'backup_download' => 'Unduh backup', 'backup_delete' => 'Hapus backup', 'backup_restore' => 'Pulihkan backup', 'backup_upload' => 'Unggah backup',
+    'settings_logo_set' => 'Ganti logo', 'settings_logo_remove' => 'Hapus logo', 'backup_create' => 'Buat backup', 'backup_download' => 'Unduh backup', 'backup_delete' => 'Hapus backup', 'backup_restore' => 'Pulihkan backup', 'backup_upload' => 'Unggah backup',
 ];
 $badge = static fn (string $a): string => match (true) {
     in_array($a, ['delete', 'purge', 'login_failed', 'user_delete', 'role_delete', 'share_delete', 'backup_delete', 'backup_restore'], true) => 'danger',

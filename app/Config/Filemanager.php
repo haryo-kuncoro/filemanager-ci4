@@ -82,7 +82,7 @@ class Filemanager extends BaseConfig
     public int $trashRetentionDays = 30;
 
     /** Panjang minimum kata sandi pengguna. */
-    public int $minPasswordLength = 8;
+    public int $minPasswordLength = 10;
 
     /** Batas total ukuran satu unduhan ZIP (byte). Default 2 GB. */
     public int $maxZipBytes = 2147483648;

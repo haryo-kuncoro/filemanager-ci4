@@ -140,8 +140,9 @@ class Installer
             return;
         }
         $err = self::lastMigrationError();
-        if ($err !== null && str_starts_with($err, self::latestMigration() . "\n")) {
-            return; // sudah dicoba untuk versi ini dan gagal
+        $errFile = self::markerPath() . '.error';
+        if ($err !== null && str_starts_with($err, self::latestMigration() . "\n") && (time() - (int) @filemtime($errFile)) < 300) {
+            return; // baru saja gagal; coba lagi setelah 5 menit (atau lewat tombol Pembaruan Database)
         }
         self::runMigrations();
     }

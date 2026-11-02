@@ -34,16 +34,19 @@ class Users extends BaseController
 
     public function store()
     {
-        $min   = config('Filemanager')->minPasswordLength;
         $rules = [
             'name'     => 'required|min_length[2]|max_length[100]',
             'username' => 'required|alpha_dash|min_length[3]|max_length[50]|is_unique[users.username]',
             'email'    => 'permit_empty|valid_email|max_length[150]',
-            'password' => "required|min_length[{$min}]|max_length[72]",
+            'password' => 'required',
             'role_id'  => 'required|is_natural_no_zero|is_not_unique[roles.id]',
         ];
         if (! $this->validate($rules)) {
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        }
+        $pwErr = \App\Libraries\PasswordPolicy::check((string) $this->request->getPost('password'), (string) $this->request->getPost('username'), (string) $this->request->getPost('name'));
+        if ($pwErr !== null) {
+            return redirect()->back()->withInput()->with('errors', ['password' => $pwErr]);
         }
 
         $id = $this->users->insert([
@@ -80,16 +83,21 @@ class Users extends BaseController
             return redirect()->to(site_url('admin/users'))->with('error', 'Pengguna tidak ditemukan.');
         }
 
-        $min   = config('Filemanager')->minPasswordLength;
         $rules = [
             'name'     => 'required|min_length[2]|max_length[100]',
             'username' => "required|alpha_dash|min_length[3]|max_length[50]|is_unique[users.username,id,{$id}]",
             'email'    => 'permit_empty|valid_email|max_length[150]',
-            'password' => "permit_empty|min_length[{$min}]|max_length[72]",
+            'password' => 'permit_empty',
             'role_id'  => 'required|is_natural_no_zero|is_not_unique[roles.id]',
         ];
         if (! $this->validate($rules)) {
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        }
+        if ((string) $this->request->getPost('password') !== '') {
+            $pwErr = \App\Libraries\PasswordPolicy::check((string) $this->request->getPost('password'), (string) $this->request->getPost('username'), (string) $this->request->getPost('name'));
+            if ($pwErr !== null) {
+                return redirect()->back()->withInput()->with('errors', ['password' => $pwErr]);
+            }
         }
 
         $newRole = (int) $this->request->getPost('role_id');

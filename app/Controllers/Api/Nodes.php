@@ -23,6 +23,21 @@ class Nodes extends BaseController
             $folder = $files->needFolder($parent);
             $rows   = $files->visibleRows($nodes->children($parent, $sort, $dir, $q !== '' ? $q : null), $q !== '');
 
+            // Ukuran folder = akumulasi seluruh berkas (yang terlihat) di dalamnya.
+            $folderIds = [];
+            foreach ($rows as $r) {
+                if ($r['type'] === 'folder') {
+                    $folderIds[] = (int) $r['id'];
+                }
+            }
+            $sizes = $folderIds !== [] ? $nodes->folderSizes($folderIds, service('auth')->id()) : [];
+            if ($sort === 'size' && $sizes !== []) {
+                $sign  = strtolower($dir) === 'desc' ? -1 : 1;
+                $sizeOf = static fn (array $r): int => $r['type'] === 'folder' ? ($sizes[(int) $r['id']] ?? 0) : (int) $r['size'];
+                usort($rows, static fn ($a, $b) => \App\Models\NodeModel::groupRank($a) <=> \App\Models\NodeModel::groupRank($b)
+                    ?: $sign * ($sizeOf($a) <=> $sizeOf($b)));
+            }
+
             $pathCache = [];
             $items     = [];
             $totalSize = 0;
@@ -30,6 +45,10 @@ class Nodes extends BaseController
             $fileCount = 0;
             foreach ($rows as $r) {
                 $it = $files->serialize($r);
+                if ($r['type'] === 'folder') {
+                    $it['size']  = $sizes[(int) $r['id']] ?? 0;
+                    $it['sized'] = true;
+                }
                 if ($q !== '') { // hasil pencarian menampilkan lokasi asal
                     $pid = $r['parent_id'] !== null ? (int) $r['parent_id'] : 0;
                     $pathCache[$pid] ??= $pid === 0 ? '/' : $nodes->pathString($pid);

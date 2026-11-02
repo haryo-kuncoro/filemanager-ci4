@@ -42,3 +42,14 @@ Options -Indexes
 # Disable server signature start
 ServerSignature Off
 # Disable server signature end
+
+# PWA
+<IfModule mod_mime.c>
+	AddType application/manifest+json .webmanifest
+	AddType text/javascript .js
+</IfModule>
+<IfModule mod_headers.c>
+	<Files "sw.js">
+		Header set Cache-Control "no-cache"
+	</Files>
+</IfModule>

@@ -12,10 +12,15 @@ class AddVisibilityDescriptionToNodes extends Migration
 {
     public function up(): void
     {
-        $this->forge->addColumn('nodes', [
+        $cols = [
             'visibility'  => ['type' => 'VARCHAR', 'constraint' => 10, 'null' => false, 'default' => 'shared'],
             'description' => ['type' => 'TEXT', 'null' => true],
-        ]);
+        ];
+        foreach ($cols as $name => $def) { // idempoten: aman bila sebagian kolom sudah ada
+            if (! $this->db->fieldExists($name, 'nodes')) {
+                $this->forge->addColumn('nodes', [$name => $def]);
+            }
+        }
     }
 
     public function down(): void

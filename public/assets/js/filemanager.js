@@ -352,8 +352,9 @@
             nameBox.append(icon(ic.cls, 'fm-icon ' + ic.tone));
         }
 
-        const label = h('div', { class: 'min-w-0', style: 'min-width:0' },
-            h('span', { class: 'label', text: it.name, title: it.name }));
+        const label = h('div', { class: 'fm-label' });
+        const title = h('div', { class: 'fm-title' }, h('span', { class: 'label', text: it.name, title: it.name }));
+        label.append(title);
         if (it.path && S.q) label.append(h('span', { class: 'sub', text: it.path }));
         if (it.description) label.append(h('span', { class: 'desc', text: it.description.split('\n')[0], title: it.description }));
         nameBox.append(label);
@@ -362,9 +363,11 @@
         if (!trash && it.private) badges.append(h('i', { class: 'bi bi-eye-slash-fill text-warning', title: 'Pribadi: hanya Anda yang melihat' }));
         if (!trash && it.locked) badges.append(h('i', { class: 'bi bi-lock-fill text-danger', title: 'Terkunci oleh pemilik' }));
         if (!trash && !it.editable) badges.append(h('i', { class: 'bi bi-person-lock text-secondary', title: 'Milik pengguna lain (hanya baca)' }));
-        if (badges.childNodes.length) label.firstChild.after(badges);
+        if (badges.childNodes.length) title.append(badges);
 
-        const sizeText = it.type === 'folder' ? (trash && it.count !== undefined ? it.count + ' item' : '—') : fmtBytes(it.size);
+        const sizeText = it.type === 'folder'
+            ? (trash && it.count !== undefined ? it.count + ' item' : (it.sized ? fmtBytes(it.size) : '—'))
+            : fmtBytes(it.size);
         const dateText = fmtDate(trash ? it.deleted_at : it.updated_at);
         const ownerText = trash ? (it.deleted_by_name || '—') : (it.owner_name || '—');
 
@@ -1421,5 +1424,6 @@
         if (el.side.classList.contains('open') && !e.target.closest('#fmSide') && !e.target.closest('[data-act="toggle-tree"]')) el.side.classList.remove('open');
     });
 
+    if (CFG.schemaWarn) toast('Struktur database belum diperbarui. Buka Administrasi → Pembaruan Database lalu jalankan migrasi.', 'warning');
     loadTree().then(route);
 })();

@@ -68,6 +68,8 @@ Vagrantfile
 /writable/debugbar/*
 !/writable/debugbar/index.html
 
+/writable/installed.lock
+
 php_errors.log
 
 #-------------------------

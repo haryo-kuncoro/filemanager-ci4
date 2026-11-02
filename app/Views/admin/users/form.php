@@ -37,7 +37,7 @@ $val  = static fn (string $k, $d = '') => old($k, $edit ? ($user[$k] ?? $d) : $d
                     <div class="mb-3">
                         <label class="form-label" for="password"><?= $edit ? 'Kata sandi baru (kosongkan bila tidak diganti)' : 'Kata sandi' ?></label>
                         <input type="password" class="form-control" id="password" name="password" minlength="<?= $min ?>" <?= $edit ? '' : 'required' ?> autocomplete="new-password">
-                        <div class="form-text">Minimal <?= $min ?> karakter.</div>
+                        <div class="form-text">Minimal <?= $min ?> karakter, memuat huruf dan angka/simbol, tidak mengandung username.</div>
                     </div>
                     <div class="form-check form-switch mb-2">
                         <input class="form-check-input" type="checkbox" id="is_active" name="is_active" value="1" <?= (int) $val('is_active', 1) ? 'checked' : '' ?>>

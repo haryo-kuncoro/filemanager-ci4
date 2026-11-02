@@ -49,12 +49,22 @@ abstract class BaseController extends Controller
         } catch (FileException $e) {
             return $this->fail($e->getMessage(), $e->httpCode());
         } catch (\Throwable $e) {
+            if (self::isSchemaError($e)) {
+                log_message('error', 'Skema database usang: ' . $e->getMessage());
+
+                return $this->fail('Struktur database belum diperbarui. Administrator: buka Administrasi → Pembaruan Database lalu jalankan migrasi.', 500);
+            }
             log_message('error', '{class}: {msg} @ {file}:{line}', [
                 'class' => $e::class, 'msg' => $e->getMessage(), 'file' => $e->getFile(), 'line' => $e->getLine(),
             ]);
 
             return $this->fail(ENVIRONMENT === 'production' ? 'Terjadi kesalahan pada server.' : $e->getMessage(), 500);
         }
+    }
+
+    private static function isSchemaError(\Throwable $e): bool
+    {
+        return (bool) preg_match('/unknown column|no such column|undefined column|column .* does not exist|no such table|doesn\'t exist/i', $e->getMessage());
     }
 
     /** Ambil body JSON (atau POST form) sebagai array. */

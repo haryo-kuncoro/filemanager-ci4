@@ -53,7 +53,7 @@ body.fm-fullpage .fm-navbar { flex: 0 0 auto; }
 
 .fm-tree, .fm-tree ul { list-style: none; margin: 0; padding: 0; }
 .fm-tree ul { padding-left: .9rem; }
-.fm-tree-node { display: flex; align-items: center; gap: .15rem; padding: .18rem .4rem; border-radius: .35rem; cursor: pointer; user-select: none; white-space: nowrap; }
+.fm-tree-node { display: flex; align-items: center; gap: .15rem; padding: .3rem .4rem; border-radius: .35rem; cursor: pointer; user-select: none; white-space: nowrap; }
 .fm-tree-node:hover { background: var(--bs-secondary-bg); }
 .fm-tree-node.active { background: var(--bs-primary-bg-subtle); color: var(--bs-primary-text-emphasis); font-weight: 500; }
 .fm-tree-node.drop-over, .fm-item.drop-over, .fm-crumbs a.drop-over { outline: 2px dashed var(--bs-primary); outline-offset: -2px; background: var(--bs-primary-bg-subtle); }
@@ -93,7 +93,8 @@ body.fm-fullpage .fm-navbar { flex: 0 0 auto; }
 .fm-head .col.sorted.desc::after { content: ' \25BE'; }
 
 .fm-item { position: relative; cursor: default; user-select: none; }
-.fm-list.list .fm-item { height: 2.45rem; border-bottom: 1px solid var(--bs-border-color-translucent); }
+/* Baris daftar: tinggi minimum + padding atas-bawah agar tidak rapat; tumbuh bila ada deskripsi. */
+.fm-list.list .fm-item { min-height: 3.25rem; padding-top: .55rem; padding-bottom: .55rem; border-bottom: 1px solid var(--bs-border-color-translucent); }
 .fm-item:hover { background: var(--bs-tertiary-bg); }
 .fm-item.selected { background: var(--bs-primary-bg-subtle); }
 .fm-item.selected:hover { background: var(--bs-primary-bg-subtle); }
@@ -102,7 +103,10 @@ body.fm-fullpage .fm-navbar { flex: 0 0 auto; }
 .fm-item:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: -2px; }
 
 .fm-name { display: flex; align-items: center; gap: .55rem; min-width: 0; }
-.fm-name .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fm-name > .fm-label { flex: 1 1 auto; min-width: 0; }                 /* boleh menyusut agar tidak menimpa kolom ukuran */
+.fm-title { display: flex; align-items: center; gap: .3rem; min-width: 0; }
+.fm-name .label { display: block; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fm-title .fm-badges { flex: 0 0 auto; margin-left: 0; }
 .fm-group { grid-column: 1 / -1; padding: .35rem .9rem; font-size: .72rem; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--bs-secondary-color); background: var(--bs-tertiary-bg); border-bottom: 1px solid var(--bs-border-color); }
 .fm-group i { margin-right: .35rem; }
 .fm-group.priv { color: var(--bs-warning-text-emphasis); }
@@ -123,9 +127,9 @@ body.fm-fullpage .fm-navbar { flex: 0 0 auto; }
 .fm-item:hover .fm-more, .fm-item.selected .fm-more { opacity: 1; }
 
 /* Tampilan grid */
-.fm-list.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: .6rem; padding: .75rem; align-content: start; }
+.fm-list.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: .9rem; padding: .75rem; align-content: start; }
 .fm-list.grid .fm-head { display: none; }
-.fm-list.grid .fm-item { display: flex; flex-direction: column; align-items: center; text-align: center; padding: .6rem .4rem .5rem; border-radius: .6rem; border: 1px solid transparent; }
+.fm-list.grid .fm-item { display: flex; flex-direction: column; align-items: center; text-align: center; padding: .8rem .5rem .7rem; border-radius: .6rem; border: 1px solid transparent; }
 .fm-list.grid .fm-item.selected { border-color: var(--bs-primary-border-subtle); }
 .fm-list.grid .fm-name { flex-direction: column; gap: .3rem; width: 100%; }
 .fm-list.grid .fm-icon { font-size: 3rem; }
@@ -206,3 +210,29 @@ body.fm-fullpage .fm-navbar { flex: 0 0 auto; }
 @media (prefers-reduced-motion: reduce) { .fm-side { transition: none; } }
 
 .d-contents { display: contents; }
+
+/* ---- Halaman masuk (landing) ---- */
+.lp { min-height: 100vh; display: flex; flex-direction: column;
+      background:
+        radial-gradient(60rem 30rem at 85% -10%, rgba(var(--bs-primary-rgb), .16), transparent 60%),
+        radial-gradient(40rem 25rem at -10% 110%, rgba(var(--bs-info-rgb), .12), transparent 60%),
+        var(--bs-body-bg); }
+.lp-inner { flex: 1; display: flex; align-items: center; max-width: 1140px; }
+.lp-brand { font-weight: 600; font-size: 1.15rem; }
+.lp-brand .bi { color: var(--bs-primary); font-size: 1.6rem; }
+.lp-title { font-weight: 700; letter-spacing: -.02em; line-height: 1.15; font-size: clamp(2rem, 4.2vw, 3.1rem); }
+.lp-accent { color: var(--bs-primary); }
+.lp-lead { font-size: 1.1rem; color: var(--bs-secondary-color); max-width: 38rem; }
+.lp-ico { flex: 0 0 2.5rem; height: 2.5rem; border-radius: .7rem; display: inline-flex; align-items: center; justify-content: center;
+          background: rgba(var(--bs-primary-rgb), .12); color: var(--bs-primary); font-size: 1.15rem; }
+.lp-card { border-radius: 1rem; }
+@media (max-width: 991.98px) { .lp-inner { align-items: flex-start; } .lp-title { font-size: 1.9rem; } }
+
+/* ---- Halaman 404 ---- */
+.nf-wrap { max-width: 34rem; }
+.nf-code { font-size: clamp(4.5rem, 16vw, 7.5rem); font-weight: 800; line-height: 1; letter-spacing: -.04em;
+           display: inline-flex; align-items: center; gap: .1em; color: var(--bs-secondary-color); }
+.nf-code .bi { color: var(--bs-primary); font-size: .85em; }
+
+.lp-logo { max-height: 88px; max-width: 70%; height: auto; width: auto; object-fit: contain; }
+.fm-list.grid .fm-title { justify-content: center; }

@@ -16,7 +16,7 @@ File manager ala elFinder berbasis **CodeIgniter 4.7**, Bootstrap 5 + Bootstrap 
 3. Pastikan folder `writable/` dapat ditulis (chmod 755/775).
 4. Buat database MySQL di panel hosting.
 5. Buka `https://domainanda.com/install`, isi data database dan akun administrator. Installer membuat `.env`, menjalankan migrasi + seeder, lalu mengunci diri (`writable/installed.lock`). Jika halaman instalasi tidak muncul, hapus file `installed.lock` di dalam folder `writable`.
-6. Login. Aktifkan `cookie.secure = true` di `.env` bila memakai HTTPS.
+6. Login. Bila situs dibuka lewat HTTPS, cookie otomatis ditandai `Secure` (tidak perlu diatur manual; isi `cookie.secure = false` di `.env` hanya bila ingin menonaktifkan).
 
 Pemasangan lewat SSH (opsional): salin `env` menjadi `.env`, isi database, lalu `php spark migrate` dan `ADMIN_PASSWORD=... php spark db:seed InitialSeeder`.
 
@@ -35,7 +35,29 @@ Tambahkan `app.indexPage = 'index.php'` di `.env`.
 | editor | kelola berkas **miliknya sendiri** (own-only) |
 | viewer | lihat & unduh saja (own-only) |
 
-Izin: `files.view/download/upload/create_folder/rename/move/copy/delete/share`, `trash.manage`, `users.manage`, `roles.manage`, `shares.manage`, `logs.view`. Peran dan izin dapat diubah di menu Admin. Peran *own-only* hanya boleh mengubah nama/memindah/menghapus/membagikan item miliknya.
+Izin: `files.view/download/upload/create_folder/rename/move/copy/delete/share`, `trash.manage`, `users.manage`, `roles.manage`, `shares.manage`, `logs.view`, `settings.manage`, `backup.manage/restore`. Peran dan izin dapat diubah di menu Admin. Peran *own-only* hanya boleh mengubah nama/memindah/menghapus/membagikan item miliknya.
+
+## Halaman masuk & halaman 404
+- **Halaman masuk** berupa landing page dua kolom: penjelasan singkat fitur di kiri, form masuk di kanan (di layar kecil form tampil lebih dulu). Mendukung mode terang/gelap. Teks ada di `app/Views/auth/login.php`, gaya `.lp-*` di `public/assets/css/app.css`.
+- **Halaman 404 kustom** (`app/Views/errors/not_found.php`) tampil untuk alamat yang tidak dikenal, dengan status HTTP 404 yang benar. Tombol utamanya menuju **Berkas** bila sudah masuk, atau **halaman masuk** bila belum. Permintaan `/api/...` mendapat JSON, bukan HTML. Dipasang lewat `set404Override` di `app/Config/Routes.php`.
+
+## PWA (dapat dipasang sebagai aplikasi)
+Aplikasi dapat dipasang di HP/laptop (Chrome/Edge: tombol **Pasang** di bilah atas atau menu browser; iPhone: Bagikan → Tambahkan ke Layar Utama). Syaratnya **HTTPS** (atau `localhost`); di HTTP biasa browser tidak mengaktifkan service worker.
+- Manifest dinamis di `/manifest.webmanifest` (nama mengikuti `appName`, URL mengikuti `baseURL`, aman untuk subfolder). Ikon di `public/assets/icons/` — ganti dengan logo Anda (ukuran sama).
+- Service worker `public/sw.js` **hanya menyimpan aset statis** (`/assets/...`). Halaman, API, unduhan, pratinjau, dan tautan berbagi tidak pernah di-cache, jadi tidak ada data pengguna di perangkat. Saat offline tampil halaman "Tidak ada koneksi"; berkas tetap membutuhkan internet.
+- Setelah memperbarui aplikasi, ubah `VERSION` di `public/sw.js` agar cache aset lama dibersihkan.
+
+## Pengaturan & logo
+Menu **Administrasi → Pengaturan** (izin `settings.manage`, bawaan hanya `administrator`, dapat diberikan ke peran lain di Peran & Izin).
+- **Logo aplikasi** tampil di atas panel login; jika belum diatur, tidak ada logo. Format PNG/JPG/GIF/WebP maks. 1 MB (disarankan PNG transparan). Bila ekstensi `gd` aktif, gambar otomatis diperkecil (maks. 600 px) dan dirender ulang ke PNG sehingga metadata/muatan tersembunyi terbuang (GIF animasi menjadi gambar diam).
+- **SVG tidak didukung** karena dapat memuat skrip.
+- Logo disimpan di database (tabel `settings`, base64), sehingga **ikut backup & pemulihan**. Backup lama tanpa tabel ini tidak menghapus logo yang ada.
+- Dilayani publik di `/brand/logo` (dibutuhkan halaman login) dengan header `nosniff` dan CSP sandbox.
+- Migrasi baru `2026-11-01-050007_CreateSettingsTable`: dijalankan otomatis saat administrator login, atau lewat Pembaruan Database. Selama belum dijalankan, halaman login tetap normal (tanpa logo).
+
+## Daftar berkas
+- **Ukuran folder** = akumulasi seluruh berkas di dalamnya (rekursif). Yang dihitung hanya berkas yang terlihat oleh Anda: isi folder pribadi milik orang lain dan berkas di sampah tidak ikut. Mengurutkan berdasarkan **Ukuran** juga memakai angka ini (tetap dalam kelompok pribadi/bersama).
+- Nama panjang dipotong dengan "…" (nama lengkap tampil saat kursor diarahkan) sehingga tidak menimpa kolom ukuran; ikon kunci/pribadi/tautan tetap terlihat.
 
 ## Kunci folder / berkas
 - Pilih item lalu klik ikon gembok (atau klik kanan → **Kunci**). **Hanya pemilik item** yang dapat mengunci dan membuka kunci — administrator pun tidak (kecuali jika pemilik asli dihapus; item otomatis dialihkan ke admin yang menghapusnya).
@@ -83,6 +105,10 @@ Hanya migrasi yang belum tercatat di tabel `migrations` yang dijalankan; **data 
 - Ekstensi berbahaya (php, phtml, htaccess, dll.) ditolak; nama berkas disanitasi.
 - Pratinjau inline hanya untuk tipe aman dengan CSP sandbox; teks tidak dirender sebagai HTML.
 - CSRF, throttling login & kata sandi tautan, regenerasi sesi, wajib ganti kata sandi awal, log aktivitas.
+- **Kebijakan kata sandi** (`app/Libraries/PasswordPolicy.php`, dipakai instalasi, profil, admin pengguna, reset): minimal 10 karakter (atur di `minPasswordLength`), maksimal 72 byte (batas bcrypt), memuat huruf + angka/simbol, tidak berspasi di tepi, tidak terlalu monoton/umum, dan tidak memuat username. Berlaku untuk kata sandi baru; akun lama tidak terpengaruh.
+- **Header keamanan** di semua halaman: `X-Frame-Options`, `nosniff`, `Referrer-Policy` (bawaan CI4) ditambah CSP ringan (`frame-ancestors`, `base-uri`, `form-action`, `object-src`), `Permissions-Policy`, dan **HSTS** (hanya lewat HTTPS, 180 hari, tanpa includeSubDomains/preload). Pratinjau berkas tetap memakai CSP sandbox sendiri. Lihat `app/Filters/HardenHeaders.php`.
+- Di belakang proxy/CDN (mis. Cloudflare), HTTPS dikenali dari header `X-Forwarded-Proto`.
+- Rekomendasi server: pakai HTTPS, `CI_ENVIRONMENT = production`, ganti kata sandi admin awal, simpan backup di luar server (berisi hash kata sandi semua pengguna).
 - Tautan publik `/s/<token>`: opsional kata sandi, kedaluwarsa, mode hanya-lihat; hanya subtree yang dibagikan yang dapat diakses.
 
 ## Jenis berkas yang boleh diunggah

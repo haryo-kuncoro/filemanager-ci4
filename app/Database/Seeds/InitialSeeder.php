@@ -34,6 +34,7 @@ class InitialSeeder extends Seeder
         'logs.view'           => ['Melihat log aktivitas', 'Administrasi'],
         'backup.manage'       => ['Backup: buat, unduh, unggah, hapus (berisi data & hash sandi SELURUH pengguna)', 'Administrasi'],
         'backup.restore'      => ['Backup: memulihkan data (mengganti SEMUA data; setara akses penuh)', 'Administrasi'],
+        'settings.manage'     => ['Pengaturan aplikasi (logo)', 'Administrasi'],
     ];
 
     public function run(): void

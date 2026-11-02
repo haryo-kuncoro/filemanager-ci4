@@ -213,9 +213,7 @@ class App extends BaseConfig
         if (($configured === null || $configured === '') && PHP_SAPI !== 'cli' && isset($_SERVER['HTTP_HOST'])) {
             $host = (string) $_SERVER['HTTP_HOST'];
             if (preg_match('/^[A-Za-z0-9.\-]+(:\d{1,5})?$/', $host)) {
-                $https = (! empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-                    || ($_SERVER['SERVER_PORT'] ?? '') === '443'
-                    || strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
+                $https = \App\Libraries\Https::isSecure();
                 $dir = rtrim(str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/index.php'))), '/');
                 $dir = preg_replace('#/public$#', '', $dir) ?? $dir; // pola "root -> public/" lewat .htaccess
 

@@ -57,6 +57,19 @@ class Cookie extends BaseConfig
     public bool $secure = false;
 
     /**
+     * Otomatis aman: bila situs dibuka lewat HTTPS dan `cookie.secure` tidak diatur di .env,
+     * cookie ditandai Secure. Isi `cookie.secure = false` di .env untuk menonaktifkan.
+     */
+    public function __construct()
+    {
+        parent::__construct();
+        $env = env('cookie.secure');
+        if (($env === null || $env === '') && \App\Libraries\Https::isSecure()) {
+            $this->secure = true;
+        }
+    }
+
+    /**
      * --------------------------------------------------------------------------
      * Cookie HTTPOnly
      * --------------------------------------------------------------------------

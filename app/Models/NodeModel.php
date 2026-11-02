@@ -195,6 +195,46 @@ class NodeModel extends Model
         return $all;
     }
 
+    /**
+     * Total ukuran isi (rekursif) beberapa folder sekaligus, hanya menghitung berkas yang terlihat
+     * oleh $viewer (item pribadi orang lain tidak ikut). Satu kueri per tingkat kedalaman, bukan per folder.
+     *
+     * @param  int[] $folderIds
+     * @return array<int,int> id folder => total byte
+     */
+    public function folderSizes(array $folderIds, ?int $viewer): array
+    {
+        $totals = [];
+        $owner  = []; // id folder yang sedang ditelusuri => id folder akar di daftar
+        foreach ($folderIds as $fid) {
+            $fid          = (int) $fid;
+            $totals[$fid] = 0;
+            $owner[$fid]  = $fid;
+        }
+        $guard = 0;
+        while ($owner !== [] && $guard++ < 200) {
+            $next = [];
+            foreach (array_chunk(array_keys($owner), 400) as $chunk) {
+                $rows = $this->builder()->select('id, parent_id, type, size, owner_id, visibility')
+                    ->whereIn('parent_id', $chunk)->where('deleted_at', null)->get()->getResultArray();
+                foreach ($rows as $row) {
+                    if (! self::selfVisible($row, $viewer)) {
+                        continue;
+                    }
+                    $root = $owner[(int) $row['parent_id']];
+                    if ($row['type'] === 'folder') {
+                        $next[(int) $row['id']] = $root;
+                    } else {
+                        $totals[$root] += (int) $row['size'];
+                    }
+                }
+            }
+            $owner = $next;
+        }
+
+        return $totals;
+    }
+
     /** Untuk tautan publik: semua node dari $id naik ke (tidak termasuk) $rootId harus 'shared'. */
     public function publiclyReachable(int $id, int $rootId): bool
     {

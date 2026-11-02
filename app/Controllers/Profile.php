@@ -40,10 +40,9 @@ class Profile extends BaseController
 
     public function updatePassword()
     {
-        $min   = config('Filemanager')->minPasswordLength;
         $rules = [
             'current_password' => 'required',
-            'new_password'     => "required|min_length[{$min}]|max_length[72]",
+            'new_password'     => 'required',
             'confirm_password' => 'required|matches[new_password]',
         ];
         $messages = [
@@ -51,6 +50,11 @@ class Profile extends BaseController
         ];
         if (! $this->validate($rules, $messages)) {
             return redirect()->back()->with('errors', $this->validator->getErrors());
+        }
+
+        $pwErr = \App\Libraries\PasswordPolicy::check((string) $this->request->getPost('new_password'), (string) ($this->auth->user()['username'] ?? ''), (string) ($this->auth->user()['name'] ?? ''));
+        if ($pwErr !== null) {
+            return redirect()->back()->with('errors', ['new_password' => $pwErr]);
         }
 
         $users = new UserModel();

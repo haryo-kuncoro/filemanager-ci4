@@ -31,6 +31,7 @@ class Files extends BaseController
                 'maxFile'    => $cfg->maxFileSize,
                 'perms'      => $user['permissions'],
                 'ownOnly'    => $this->auth->isOwnOnly(),
+                'schemaWarn' => $this->auth->isAdministrator() && \App\Libraries\Installer::schemaOutdated(),
                 'me'         => ['id' => (int) $user['id'], 'name' => $user['name']],
             ],
         ]);

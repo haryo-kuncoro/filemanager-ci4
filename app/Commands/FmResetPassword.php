@@ -34,7 +34,12 @@ class FmResetPassword extends BaseCommand
         }
 
         $generated = ! isset($params[1]);
-        $password  = $params[1] ?? bin2hex(random_bytes(6));
+        $password  = $params[1] ?? bin2hex(random_bytes(8));
+        if (isset($params[1]) && ($pwErr = \App\Libraries\PasswordPolicy::check($password, $username)) !== null) {
+            CLI::error($pwErr);
+
+            return EXIT_ERROR;
+        }
 
         $users->update((int) $user['id'], [
             'password_hash'        => password_hash($password, PASSWORD_DEFAULT),
