@@ -58,12 +58,15 @@
                     </td>
                     <td class="text-end"><?= esc(fm_bytes($b['size'])) ?></td>
                     <td class="text-end text-nowrap">
-                        <a class="btn btn-sm btn-outline-secondary" href="<?= site_url('admin/backups/download/' . rawurlencode($b['name'])) ?>" title="Unduh"><i class="bi bi-download"></i></a>
-                        <?php if ($m && can('backup.restore')): ?><button class="btn btn-sm btn-outline-warning" type="button" data-restore="<?= esc($b['name'], 'attr') ?>" title="Pulihkan"><i class="bi bi-arrow-counterclockwise"></i> Pulihkan</button><?php endif; ?>
-                        <form class="d-inline" method="post" action="<?= site_url('admin/backups/delete') ?>" onsubmit="return confirm('Hapus backup ini?')">
-                            <?= csrf_field() ?><input type="hidden" name="name" value="<?= esc($b['name'], 'attr') ?>">
-                            <button class="btn btn-sm btn-outline-danger" title="Hapus"><i class="bi bi-trash"></i></button>
-                        </form>
+                        <div class="d-flex gap-1 justify-content-end flex-wrap">
+                            <a class="btn btn-sm btn-outline-secondary" href="<?= site_url('admin/backups/download/' . rawurlencode($b['name'])) ?>" title="Unduh"><i class="bi bi-download"></i></a>
+                            <?php if ($m && is_admin()): ?><a class="btn btn-sm btn-outline-primary" href="<?= site_url('admin/archive/' . rawurlencode($b['name'])) ?>" title="Lihat isi backup tanpa memulihkan"><i class="bi bi-folder2-open"></i> Jelajahi</a><?php endif; ?>
+                            <?php if ($m && can('backup.restore')): ?><button class="btn btn-sm btn-outline-warning" type="button" data-restore="<?= esc($b['name'], 'attr') ?>" title="Pulihkan"><i class="bi bi-arrow-counterclockwise"></i> Pulihkan</button><?php endif; ?>
+                            <form class="d-inline" method="post" action="<?= site_url('admin/backups/delete') ?>" onsubmit="return confirm('Hapus backup ini?')">
+                                <?= csrf_field() ?><input type="hidden" name="name" value="<?= esc($b['name'], 'attr') ?>">
+                                <button class="btn btn-sm btn-outline-danger" title="Hapus"><i class="bi bi-trash"></i></button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
             <?php endforeach; ?>

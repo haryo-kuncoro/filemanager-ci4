@@ -103,6 +103,15 @@ $routes->group('', ['filter' => 'auth'], static function ($routes) {
         $routes->get('database', 'Admin\Database::index', ['filter' => 'admin']);
         $routes->post('database/migrate', 'Admin\Database::migrate', ['filter' => 'admin']);
 
+        // Jelajah & ekstrak isi backup tanpa memulihkan (khusus peran administrator)
+        $routes->get('archive/(:segment)', 'Admin\Archive::index/$1', ['filter' => 'admin']);
+        $routes->get('archive/(:segment)/list', 'Admin\Archive::list/$1', ['filter' => 'admin']);
+        $routes->get('archive/(:segment)/file/(:num)', 'Admin\Archive::file/$1/$2', ['filter' => 'admin']);
+        $routes->post('archive/(:segment)/plan', 'Admin\Archive::plan/$1', ['filter' => 'admin']);
+        $routes->post('archive/(:segment)/start', 'Admin\Archive::start/$1', ['filter' => 'admin']);
+        $routes->post('archive/(:segment)/step', 'Admin\Archive::step/$1', ['filter' => 'admin']);
+        $routes->post('archive/(:segment)/cancel', 'Admin\Archive::cancel/$1', ['filter' => 'admin']);
+
         $routes->get('settings', 'Admin\Settings::index', ['filter' => 'perm:settings.manage']);
         $routes->post('settings/logo', 'Admin\Settings::uploadLogo', ['filter' => 'perm:settings.manage']);
         $routes->post('settings/logo/delete', 'Admin\Settings::deleteLogo', ['filter' => 'perm:settings.manage']);

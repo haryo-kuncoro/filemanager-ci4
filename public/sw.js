@@ -2,7 +2,7 @@
  * KEAMANAN: hanya aset statis publik (/assets/...) yang di-cache. Halaman, API, unduhan,
  * pratinjau, dan tautan berbagi TIDAK pernah disimpan, jadi tidak ada data pengguna
  * yang tertinggal di cache perangkat. Saat offline, navigasi menampilkan halaman offline. */
-const VERSION = 'fm-v1.7.1';
+const VERSION = 'fm-v1.8.1';
 const STATIC_CACHE = 'static-' + VERSION;
 const OFFLINE_HTML = `<!doctype html><html lang="id"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
@@ -17,6 +17,11 @@ svg{width:84px;height:84px;color:#0d6efd}</style></head><body><div class="b">
 <h1>Tidak ada koneksi internet</h1>
 <p>File Manager butuh koneksi untuk menampilkan berkas Anda. Periksa jaringan lalu coba lagi.</p>
 <button onclick="location.reload()">Coba lagi</button></div></body></html>`;
+
+const SERVER_HTML = OFFLINE_HTML
+  .replace('Tidak ada koneksi internet', 'Server tidak merespons')
+  .replace('File Manager butuh koneksi untuk menampilkan berkas Anda. Periksa jaringan lalu coba lagi.', 'Koneksi Anda aktif, tetapi server tidak menjawab (mungkin sibuk atau sedang dipulihkan). Tunggu sebentar lalu coba lagi.')
+  .replace('<title>Tidak ada koneksi</title>', '<title>Server tidak merespons</title>');
 
 self.addEventListener('install', (e) => { self.skipWaiting(); });
 
@@ -39,11 +44,20 @@ self.addEventListener('fetch', (e) => {
   const rel = url.pathname.startsWith(scopePath) ? url.pathname.slice(scopePath.length) : null;
   if (rel === null) return;
 
-  // Navigasi halaman: selalu ke jaringan; offline -> halaman offline (tanpa menyimpan halaman apa pun).
+  // Navigasi halaman: selalu ke jaringan. Gangguan sesaat (hosting memutus/menahan permintaan) dicoba ulang
+  // sekali; halaman "tidak ada koneksi" hanya untuk perangkat yang benar-benar offline.
   if (req.mode === 'navigate') {
-    e.respondWith(fetch(req).catch(() => new Response(OFFLINE_HTML, {
-      status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
-    })));
+    e.respondWith((async () => {
+      try { return await fetch(req); } catch (err1) {
+        await new Promise((r) => setTimeout(r, 700));
+        try { return await fetch(req); } catch (err2) {
+          const offline = self.navigator && self.navigator.onLine === false;
+          return new Response(offline ? OFFLINE_HTML : SERVER_HTML, {
+            status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' },
+          });
+        }
+      }
+    })());
     return;
   }
 

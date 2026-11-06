@@ -59,6 +59,9 @@ class Roles extends BaseController
         if ($role === null) {
             return redirect()->to(site_url('admin/roles'))->with('error', 'Peran tidak ditemukan.');
         }
+        if ($role['name'] === 'administrator' && ! $this->auth->isAdministrator()) {
+            return redirect()->to(site_url('admin/roles'))->with('error', 'Hanya administrator yang dapat mengubah peran administrator.');
+        }
 
         return view('admin/roles/form', [
             'title' => 'Ubah Peran', 'role' => $role,
@@ -71,6 +74,9 @@ class Roles extends BaseController
         $role = $this->roles->find($id);
         if ($role === null) {
             return redirect()->to(site_url('admin/roles'))->with('error', 'Peran tidak ditemukan.');
+        }
+        if ($role['name'] === 'administrator' && ! $this->auth->isAdministrator()) {
+            return redirect()->to(site_url('admin/roles'))->with('error', 'Hanya administrator yang dapat mengubah peran administrator.');
         }
 
         $rules = [
@@ -123,6 +129,9 @@ class Roles extends BaseController
         $role = $this->roles->find($id);
         if ($role === null) {
             return redirect()->to(site_url('admin/roles'))->with('error', 'Peran tidak ditemukan.');
+        }
+        if ($role['name'] === 'administrator' && ! $this->auth->isAdministrator()) {
+            return redirect()->to(site_url('admin/roles'))->with('error', 'Hanya administrator yang dapat mengubah peran administrator.');
         }
         if ($role['is_system']) {
             return redirect()->to(site_url('admin/roles'))->with('error', 'Peran bawaan sistem tidak dapat dihapus.');

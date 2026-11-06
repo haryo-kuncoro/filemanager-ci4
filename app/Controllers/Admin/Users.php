@@ -22,13 +22,19 @@ class Users extends BaseController
 
     public function index()
     {
-        return view('admin/users/index', ['title' => 'Pengguna', 'users' => $this->users->withRoles()]);
+        $list = $this->users->withRoles();
+        if (! $this->auth->isAdministrator()) {
+            // Non-administrator tidak melihat/mengelola akun administrator.
+            $list = array_values(array_filter($list, static fn ($u) => ($u['role_name'] ?? '') !== 'administrator'));
+        }
+
+        return view('admin/users/index', ['title' => 'Pengguna', 'users' => $list]);
     }
 
     public function create()
     {
         return view('admin/users/form', [
-            'title' => 'Tambah Pengguna', 'user' => null, 'roles' => $this->roles->orderBy('id')->findAll(),
+            'title' => 'Tambah Pengguna', 'user' => null, 'roles' => $this->assignableRoles(),
         ]);
     }
 
@@ -43,6 +49,9 @@ class Users extends BaseController
         ];
         if (! $this->validate($rules)) {
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        }
+        if ($this->isAdminRole((int) $this->request->getPost('role_id')) && ! $this->auth->isAdministrator()) {
+            return redirect()->back()->withInput()->with('error', 'Hanya administrator yang dapat membuat atau menetapkan peran administrator.');
         }
         $pwErr = \App\Libraries\PasswordPolicy::check((string) $this->request->getPost('password'), (string) $this->request->getPost('username'), (string) $this->request->getPost('name'));
         if ($pwErr !== null) {
@@ -70,9 +79,12 @@ class Users extends BaseController
         if ($user === null) {
             return redirect()->to(site_url('admin/users'))->with('error', 'Pengguna tidak ditemukan.');
         }
+        if ($deny = $this->denyAdminTarget($user)) {
+            return $deny;
+        }
 
         return view('admin/users/form', [
-            'title' => 'Ubah Pengguna', 'user' => $user, 'roles' => $this->roles->orderBy('id')->findAll(),
+            'title' => 'Ubah Pengguna', 'user' => $user, 'roles' => $this->assignableRoles(),
         ]);
     }
 
@@ -81,6 +93,13 @@ class Users extends BaseController
         $user = $this->users->find($id);
         if ($user === null) {
             return redirect()->to(site_url('admin/users'))->with('error', 'Pengguna tidak ditemukan.');
+        }
+
+        if ($deny = $this->denyAdminTarget($user)) {
+            return $deny;
+        }
+        if ($this->isAdminRole((int) $this->request->getPost('role_id')) && ! $this->auth->isAdministrator()) {
+            return redirect()->back()->withInput()->with('error', 'Hanya administrator yang dapat menetapkan peran administrator.');
         }
 
         $rules = [
@@ -138,6 +157,9 @@ class Users extends BaseController
         if ($user === null) {
             return redirect()->to(site_url('admin/users'))->with('error', 'Pengguna tidak ditemukan.');
         }
+        if ($deny = $this->denyAdminTarget($user)) {
+            return $deny;
+        }
         if ($id === $this->auth->id()) {
             return redirect()->to(site_url('admin/users'))->with('error', 'Anda tidak dapat menghapus akun Anda sendiri.');
         }
@@ -164,5 +186,35 @@ class Users extends BaseController
         $hasManage = in_array('users.manage', $this->roles->permissionCodes((int) $row['role_id']), true);
 
         return $hasManage && $this->users->countActiveAdmins($id) === 0;
+    }
+
+    private function isAdminRole(int $roleId): bool
+    {
+        $r = $this->roles->find($roleId);
+
+        return $r !== null && $r['name'] === 'administrator';
+    }
+
+    /** Peran yang boleh ditetapkan oleh pengguna saat ini (non-administrator: tanpa peran administrator). */
+    private function assignableRoles(): array
+    {
+        $all = $this->roles->orderBy('id')->findAll();
+        if ($this->auth->isAdministrator()) {
+            return $all;
+        }
+
+        return array_values(array_filter($all, static fn ($r) => $r['name'] !== 'administrator'));
+    }
+
+    /** Non-administrator tidak boleh menyentuh akun administrator. Kembalikan redirect bila ditolak. */
+    private function denyAdminTarget(array $user)
+    {
+        if (! $this->auth->isAdministrator() && $this->isAdminRole((int) $user['role_id'])) {
+            ActivityLogModel::record('user_denied', $this->auth->user(), null, $user['username'], ['user_id' => (int) $user['id']]);
+
+            return redirect()->to(site_url('admin/users'))->with('error', 'Hanya administrator yang dapat mengelola akun administrator.');
+        }
+
+        return null;
     }
 }

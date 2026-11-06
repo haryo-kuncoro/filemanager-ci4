@@ -35,6 +35,8 @@ Tambahkan `app.indexPage = 'index.php'` di `.env`.
 | editor | kelola berkas **miliknya sendiri** (own-only) |
 | viewer | lihat & unduh saja (own-only) |
 
+**Akun administrator dilindungi (v1.9.0):** hanya peran `administrator` yang dapat melihat, mengubah, menghapus, atau membuat akun ber-peran administrator, serta mengubah peran administrator. Pengguna non-administrator yang diberi izin `users.manage` hanya melihat dan mengelola akun non-administrator, dan pilihan peran administrator disembunyikan dari formulirnya. Percobaan akses ditolak dan dicatat di log (`user_denied`).
+
 Izin: `files.view/download/upload/create_folder/rename/move/copy/delete/share`, `trash.manage`, `users.manage`, `roles.manage`, `shares.manage`, `logs.view`, `settings.manage`, `backup.manage/restore`. Peran dan izin dapat diubah di menu Admin. Peran *own-only* hanya boleh mengubah nama/memindah/menghapus/membagikan item miliknya.
 
 ## Halaman masuk & halaman 404
@@ -46,6 +48,8 @@ Aplikasi dapat dipasang di HP/laptop (Chrome/Edge: tombol **Pasang** di bilah at
 - Manifest dinamis di `/manifest.webmanifest` (nama mengikuti `appName`, URL mengikuti `baseURL`, aman untuk subfolder). Ikon di `public/assets/icons/` — ganti dengan logo Anda (ukuran sama).
 - Service worker `public/sw.js` **hanya menyimpan aset statis** (`/assets/...`). Halaman, API, unduhan, pratinjau, dan tautan berbagi tidak pernah di-cache, jadi tidak ada data pengguna di perangkat. Saat offline tampil halaman "Tidak ada koneksi"; berkas tetap membutuhkan internet.
 - Setelah memperbarui aplikasi, ubah `VERSION` di `public/sw.js` agar cache aset lama dibersihkan.
+
+**Muncul "Tidak ada koneksi internet" padahal online?** Sejak v1.8.1 service worker mencoba ulang sekali saat permintaan halaman gagal, dan membedakan *perangkat offline* dari *server tidak merespons*. Jika pesan "Server tidak merespons" sering muncul, periksa error log hosting (batas proses/CPU/memori, LiteSpeed/Apache memutus koneksi). Untuk memaksa pembaruan: DevTools → Application → Service Workers → Unregister, lalu muat ulang.
 
 ## Pengaturan & logo
 Menu **Administrasi → Pengaturan** (izin `settings.manage`, bawaan hanya `administrator`, dapat diberikan ke peran lain di Peran & Izin).
@@ -90,6 +94,18 @@ Halaman Pembaruan Database tetap khusus peran `administrator`.
 - **Pulihkan**: mengganti SELURUH data dengan isi backup. Butuh kata sandi Anda + ketik `PULIHKAN`. Sebelum memulihkan dibuat backup pengaman otomatis (`backup-sebelum-pulih-*.zip`); bila pemulihan database gagal, data lama tetap utuh (transaksi). Setelah selesai Anda keluar dan login dengan akun dari backup.
 - Alur install ulang: pasang aplikasi (`/install`), login, unggah backup, Pulihkan.
 - Backup bisa dipulihkan lintas versi aplikasi (kolom yang tidak ada diabaikan / memakai nilai bawaan).
+
+## Jelajahi arsip backup (tanpa memulihkan)
+Untuk melihat berkas lama dari backup **tanpa** menimpa data yang sedang dipakai: **Administrasi → Backup & Pemulihan → Jelajahi** pada backup yang diinginkan. Khusus peran `administrator` (tidak dapat didelegasikan lewat izin peran).
+- **Mode baca**: isi arsip dibuka langsung dari berkas ZIP, tidak ada yang dipulihkan. Telusuri folder, cari nama/deskripsi, lihat pemilik asli, **lihat** (gambar/PDF/audio/video yang aman) atau **unduh** satu berkas dari arsip.
+- Administrator melihat **seluruh** item arsip, **milik siapa pun, pribadi, maupun terkunci**. Setiap pembukaan arsip dan unduhan dicatat di Log Aktivitas. Tombol *Tampilkan yang sudah dihapus* memperlihatkan item yang saat backup berada di sampah.
+- **Ekstrak**: pilih item (berkas/folder) lalu *Ekstrak*. Salinannya masuk ke folder baru `Pemulihan Arsip / Arsip <tanggal> — <nama backup>` di Beranda; **berkas dan folder yang sedang dipakai tidak disentuh sama sekali**. Mengekstrak lagi membuat subfolder baru, sehingga tidak ada yang bentrok atau bercampur.
+  - Folder tujuan bersifat **pribadi** (hanya terlihat oleh administrator yang mengekstrak). Ubah ke *Bersama* atau pindahkan hasilnya bila ingin dibuka untuk pengguna lain.
+  - Pemilik salinan menjadi administrator yang mengekstrak; **kunci tidak ikut**; item yang dulunya pribadi tetap pribadi; deskripsi dan tanggal ubah asli dipertahankan.
+  - Berjalan **per batch** (±8 detik) dengan indikator progres, sehingga aman untuk arsip besar di shared hosting tanpa SSH. Sebelum mulai dicek ruang disk (butuh ukuran data + 50 MB cadangan). Bila disk penuh di tengah jalan, proses berhenti dengan pesan jelas dan yang sudah terekstrak tetap ada.
+  - Berkas yang isinya tidak ada di backup, atau bernama tidak valid, dilewati dan dilaporkan (tidak menggagalkan seluruh proses).
+- Keamanan: path berkas di dalam ZIP dihitung dari `storage_name` yang divalidasi (32 heksadesimal), tidak pernah dari nama entri arsip, sehingga arsip yang dimanipulasi tidak dapat membaca/menulis berkas di luar penyimpanan.
+- Batasan: indeks pohon arsip dimuat ke memori saat dibuka (arsip dengan >100 ribu item butuh `memory_limit` PHP yang lega). Folder tidak dapat diunduh langsung dari arsip; ekstrak dulu lalu unduh dari Beranda.
 
 ## Memperbarui database tanpa SSH (migrasi)
 Saat ada versi baru dengan berkas migrasi baru (`app/Database/Migrations/`):
