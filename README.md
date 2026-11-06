@@ -15,7 +15,7 @@ File manager ala elFinder berbasis **CodeIgniter 4.7**, Bootstrap 5 + Bootstrap 
    **Opsi B (paling aman):** arahkan document root domain ke folder `public/`.
 3. Pastikan folder `writable/` dapat ditulis (chmod 755/775).
 4. Buat database MySQL di panel hosting.
-5. Buka `https://domainanda.com/install`, isi data database dan akun administrator. Installer membuat `.env`, menjalankan migrasi + seeder, lalu mengunci diri (`writable/installed.lock`). Jika halaman instalasi tidak muncul, hapus file `installed.lock` di dalam folder `writable`.
+5. Buka `https://domainanda.com/install`, isi data database dan akun administrator. Installer membuat `.env`, menjalankan migrasi + seeder, lalu mengunci diri (`writable/installed.lock`).
 6. Login. Bila situs dibuka lewat HTTPS, cookie otomatis ditandai `Secure` (tidak perlu diatur manual; isi `cookie.secure = false` di `.env` hanya bila ingin menonaktifkan).
 
 Pemasangan lewat SSH (opsional): salin `env` menjadi `.env`, isi database, lalu `php spark migrate` dan `ADMIN_PASSWORD=... php spark db:seed InitialSeeder`.
