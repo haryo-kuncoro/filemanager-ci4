@@ -2,7 +2,7 @@
  * KEAMANAN: hanya aset statis publik (/assets/...) yang di-cache. Halaman, API, unduhan,
  * pratinjau, dan tautan berbagi TIDAK pernah disimpan, jadi tidak ada data pengguna
  * yang tertinggal di cache perangkat. Saat offline, navigasi menampilkan halaman offline. */
-const VERSION = 'fm-v1.8.1';
+const VERSION = 'fm-v1.9.1';
 const STATIC_CACHE = 'static-' + VERSION;
 const OFFLINE_HTML = `<!doctype html><html lang="id"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">

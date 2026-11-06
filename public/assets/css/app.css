@@ -3,7 +3,7 @@
    ========================================================================== */
 
 /* ---------- Halaman penuh (file manager) ---------- */
-body.fm-fullpage { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+body.fm-fullpage { height: 100vh; height: var(--app-h, 100dvh); display: flex; flex-direction: column; overflow: hidden; }
 body.fm-fullpage .fm-navbar { flex: 0 0 auto; }
 .fm-fullmain { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 
@@ -153,6 +153,7 @@ body.fm-fullpage .fm-navbar { flex: 0 0 auto; }
 .fm-status {
     flex: 0 0 auto; display: flex; gap: 1rem; flex-wrap: wrap; padding: .25rem .75rem; font-size: .78rem;
     color: var(--bs-secondary-color); border-top: 1px solid var(--bs-border-color); background: var(--bs-tertiary-bg);
+    padding-bottom: calc(.25rem + env(safe-area-inset-bottom, 0px)); min-height: 1.75rem;
 }
 .fm-status .grow { flex: 1 1 auto; }
 

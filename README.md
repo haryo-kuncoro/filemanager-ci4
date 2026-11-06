@@ -51,6 +51,8 @@ Aplikasi dapat dipasang di HP/laptop (Chrome/Edge: tombol **Pasang** di bilah at
 
 **Muncul "Tidak ada koneksi internet" padahal online?** Sejak v1.8.1 service worker mencoba ulang sekali saat permintaan halaman gagal, dan membedakan *perangkat offline* dari *server tidak merespons*. Jika pesan "Server tidak merespons" sering muncul, periksa error log hosting (batas proses/CPU/memori, LiteSpeed/Apache memutus koneksi). Untuk memaksa pembaruan: DevTools → Application → Service Workers → Unregister, lalu muat ulang.
 
+**Bilah status terpotong di ponsel/PWA?** Penyebabnya tinggi layar `100vh` di browser ponsel mencakup area di balik bilah alamat/navigasi, sehingga bagian bawah (bilah status) tertutup sampai halaman dimuat ulang. Sejak v1.9.1 tinggi memakai tinggi tampilan nyata (`innerHeight`/`dvh`) dan area aman layar (`safe-area-inset-bottom`). Setelah memperbarui, naikkan `VERSION` di `sw.js` (sudah dilakukan) agar CSS lama tidak tertahan.
+
 ## Pengaturan & logo
 Menu **Administrasi → Pengaturan** (izin `settings.manage`, bawaan hanya `administrator`, dapat diberikan ke peran lain di Peran & Izin).
 - **Logo aplikasi** tampil di atas panel login; jika belum diatur, tidak ada logo. Format PNG/JPG/GIF/WebP maks. 1 MB (disarankan PNG transparan). Bila ekstensi `gd` aktif, gambar otomatis diperkecil (maks. 600 px) dan dirender ulang ke PNG sehingga metadata/muatan tersembunyi terbuang (GIF animasi menjadi gambar diam).

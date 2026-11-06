@@ -10,7 +10,8 @@ $active = static fn (string $prefix): string => str_starts_with($path, $prefix) 
 <html lang="id" data-bs-theme="light">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <script>(function(){var d=document.documentElement,f=function(){d.style.setProperty('--app-h',window.innerHeight+'px')};f();addEventListener('resize',f);addEventListener('orientationchange',function(){setTimeout(f,250)});addEventListener('pageshow',f);if(window.visualViewport)visualViewport.addEventListener('resize',f)})();</script>
     <meta name="csrf-token" content="<?= csrf_hash() ?>">
     <meta name="robots" content="noindex,nofollow">
     <title><?= esc(($title ?? '') !== '' ? $title . ' · ' : '') . esc($cfg->appName) ?></title>
